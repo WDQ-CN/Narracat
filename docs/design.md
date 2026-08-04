@@ -188,7 +188,7 @@ NarraCat 主品牌色为 `#04C853`。它是产品身份色，不是成功状态�
 
 **人工视觉验收路径（最小集）：**
 
-新功能若触及下列任一 surface，提交前按 `docs/agents/verification.md` 的 Renderer UI 路径做 Electron 或截图 smoke：
+新功能若触及下列任一 surface，提交前用 `bun --no-cache run dev` 起真实 Electron 窗口（Workbench / Agent 面板等调用 `window.electron` 的页面不能只用浏览器验证）或截图，走查关键视口做 smoke：
 
 | 场景 | 覆盖点 | 模式 | 面板宽度 |
 |------|--------|------|----------|
