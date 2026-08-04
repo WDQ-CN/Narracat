@@ -89,8 +89,9 @@ async function mountWizardView(): Promise<string> {
   return container ? (container as unknown as { innerHTML: string }).innerHTML : ''
 }
 
-beforeEach(() => {
-  usePackWizardStore.setState({
+/** store 干净默认态：本文件跨用例（beforeEach）与跨文件（afterEach，见下）双向复用，防跑序污染。 */
+function cleanStoreState() {
+  return {
     messages: [],
     phase: null,
     draftId: null,
@@ -98,7 +99,11 @@ beforeEach(() => {
     error: null,
     started: false,
     lastSeq: 0,
-  })
+  }
+}
+
+beforeEach(() => {
+  usePackWizardStore.setState(cleanStoreState())
 })
 
 afterEach(async () => {
@@ -114,6 +119,14 @@ afterEach(async () => {
   }
   __resetPackWizardSubscriptionForTest()
   __resetPackWizardHydrationForTest()
+  // 本文件是仓内少数直接 setState 到 usePackWizardStore（模块级单例）的用例之一——最后一个
+  // test（「store 已持有会话」）把 started 摆成 true 且不经 beforeEach 复位就结束。bun test
+  // 同进程内跨文件共享该单例：若本文件在 WizardView.test.tsx 之前跑完，遗留的 started=true
+  // 会让后者「首帧空白占位」用例里 entering 的懒初始化（读 live getState()）失真而假红
+  // （该用例的 phase/started 走 SSR getInitialState 快照，与 entering 读到的 live 值不同源，
+  // 两者错位时会漏判成「已水合」）。afterEach 而非只 afterAll 兜底，保证本文件任何一个用例
+  // 提前失败退出时也不留脏状态。
+  usePackWizardStore.setState(cleanStoreState())
 })
 
 afterAll(async () => {
