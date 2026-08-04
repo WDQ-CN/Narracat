@@ -1,7 +1,7 @@
 {
   "name": "@narracat/mcp-server",
   "version": "4.0.161",
-  "description": "NovelMemory MCP Server - adapter between Claude Code and OpenMemory",
+  "description": "NovelMemory MCP Server - adapter between NarraCat Agent runtime and OpenMemory",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

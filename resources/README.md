@@ -22,8 +22,9 @@ Electron's resources directory:
 <app>/Contents/Resources/NarraCatAgentCore
 ```
 
-The packaged directory is a Claude SDK runtime adapter for the internal Agent
-Core. It is not an upstream NarraCat plugin checkout.
+The packaged directory ships the internal Agent Core's engine resources
+(commands/agents/skills/schemas/MCP server), consumed by the app's pi-based
+agent runtime. It is not an upstream NarraCat plugin checkout.
 
 ## Preparation
 

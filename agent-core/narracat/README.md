@@ -1,6 +1,6 @@
 # NarraCat Agent Core
 
-NarraCat-app 内部维护的 Agent Core，为 AI 辅助超长篇小说创作（50-500 章，20万-300万字）提供完整工具链。当前保留 Claude Code plugin-shaped runtime adapter 以供桌面端通过 Claude Agent SDK 加载。
+NarraCat-app 内部维护的创作引擎（不是上游插件镜像），为 AI 辅助超长篇小说创作（50-500 章，20万-300万字）提供完整工具链。App 层通过 pi agent runtime 装配本引擎，以 `narracat.manifest.json` 为唯一契约清单发现与校验。
 
 ## 功能特性
 
@@ -26,27 +26,26 @@ continuity-editor、伏笔追踪、章节审修循环等系统**是辅助人改�
 ## 架构
 
 ```
-用户交互层   Commands(9) → 主会话（编排者，派发只传路径+参数的 Envelope）
+用户交互层   Commands(13) → 主会话（编排者，派发只传路径+参数的 Envelope）
 专业Agent层  5 个 Subagent → 通过 Task 工具调用
 引擎层       NovelMemory MCP Server（TypeScript, stdio, 嵌入式 SQLite + FTS5）
-机械层       command 脚本钩子 + 工具机械渲染（大纲 md / 审校报告 / 叙述者腔调节）
+机械层       App 侧原生门控（TypeScript 重实现的产物/回执核对）+ 工具机械渲染（大纲 md / 审校报告 / 叙述者腔调节）
 ```
 
 结构化数据一律经 NovelMemory MCP 工具入口提交（ajv 校验，失败返回字段级 errors + hint 供自修正）；每个 agent 只持有自己产物的提交工具，Agent 不直接通信。
 
 ## 前置依赖
 
-- [Claude Code](https://claude.com/claude-code) CLI
-- Node.js 18+（MCP Server 运行时）
+- [NarraCat 桌面应用](../../README.md)（内嵌 pi agent runtime，负责装配本引擎）
+- Node.js 18+（MCP Server 运行时；开发调试 mcp-server 时需要）
 
 ## 使用方式
 
-```bash
-# 进入小说项目目录
-cd ~/my-novel
+本引擎不独立运行，只能通过 NarraCat 桌面应用装配使用：
 
-# 以开发模式加载插件（--plugin-dir 指向插件目录本身）
-claude --plugin-dir <path-to-narracat>
+```bash
+# 在仓库根目录（narracat-app）启动开发模式，App 会按 narracat.manifest.json 发现并装配本引擎
+bun --no-cache run dev
 ```
 
 ## 命令
@@ -62,6 +61,12 @@ claude --plugin-dir <path-to-narracat>
 | `/narracat:review` | 手动审校章节（深审模式只标注不回流） | `/narracat:review 40-45` |
 | `/narracat:rewrite` | 重写已完成章节 | `/narracat:rewrite 20` |
 | `/narracat:status` | 查看项目进度 | `/narracat:status` |
+| `/narracat:revise-premise` | 立项卡定点修订（先评级联影响、确认后再落改） | `/narracat:revise-premise 对抗力量` |
+| `/narracat:sync-chapter-memory` | 手改正文后同步本章记忆 | `/narracat:sync-chapter-memory 12` |
+| `/narracat:learn-craft` | 从书学写法（App 在独立学习工作区编排，产出能力卡草稿） | 由 App 造包中心触发，非小说项目内直接调用 |
+| `/narracat:writer-wizard` | 作家向导（多轮访谈把作者自述写法整理成能力卡草稿） | 由 App 造包中心触发，非小说项目内直接调用 |
+
+完整命令清单以 `narracat.manifest.json` 的 `commands` 字段为 SSOT。
 
 ## 典型工作流
 
@@ -133,13 +138,12 @@ my-novel/
 └── notes/                   # 自由笔记
 ```
 
-## 插件目录结构
+## 目录结构
 
 ```
 narracat/
-├── .claude-plugin/
-│   └── plugin.json
-├── commands/                       # 9 个 Command
+├── narracat.manifest.json          # 契约清单（SSOT）— App 层按此发现与装配 commands/agents/skills/schemas
+├── commands/                       # 13 个 Command
 │   ├── init.md                     #   初始化项目 — 创建目录结构和配置文件（纯机械）
 │   ├── setup.md                    #   立项对话 — grill 式追问 → 九张立项卡落盘 premise.md
 │   ├── reference.md                #   参考作品分析 — 从 bible/references/ 生成 bible/reference-guidance/
@@ -148,7 +152,11 @@ narracat/
 │   ├── write.md                    #   核心写作循环 — 上下文聚合→生成→审修→入库
 │   ├── review.md                   #   手动审校 — 模式 A 同主链 L1；模式 B 深审标注不回流
 │   ├── rewrite.md                  #   重写章节 — 记忆回滚→重写→级联影响分析
-│   └── status.md                   #   进度查看 — 章节完成度、字数统计、伏笔追踪
+│   ├── status.md                   #   进度查看 — 章节完成度、字数统计、伏笔追踪
+│   ├── revise-premise.md           #   立项卡定点修订 — 先评级联影响、确认后再落改
+│   ├── sync-chapter-memory.md      #   手改正文后同步本章记忆 — 回滚重抽→矛盾提示
+│   ├── learn-craft.md              #   从书学写法 — 产出能力卡草稿（App 在独立学习工作区编排）
+│   └── writer-wizard.md            #   作家向导 — 多轮访谈整理写法为能力卡草稿（App 在独立向导工作区编排）
 ├── agents/                         # 5 个 Agent
 │   ├── outline-architect.md        #   大纲架构师 — 三层大纲产出，经提交工具自校验入库
 │   ├── chapter-writer.md           #   章节写手 — 根据 WritingContextPack 创作正文（只产正文）
@@ -161,22 +169,29 @@ narracat/
 │   ├── novel-memory-integration/   #   记忆查询指南（主会话）
 │   ├── novel-style-reference/      #   真人写作范例 corpus（带机制注解）
 │   └── novel-reference-analysis-method/   #   参考作品分析方法论（仅 /narracat:reference 显式调用）
-├── hooks/
-│   ├── hooks.json                  #   SubagentStop + PostToolUse 钩子（全部 command 脚本）
-│   └── scripts/                    #   钩子脚本（产物存在性 / receipt 核对 / 字数检查）
-├── schemas/                        # 6 个数据契约（SSOT）
+├── hooks/                          # 旧运行时 hook 格式遗留物，见下方说明
+│   ├── hooks.json                  #   SubagentStop + PostToolUse 事件定义（全部 command 脚本）
+│   └── scripts/                    #   参照脚本（产物存在性 / receipt 核对 / 字数检查）
+├── schemas/                        # 11 个数据契约（SSOT）
 │   ├── writing-context-pack.json   #   写作上下文包 — builder 产出，章节写作的唯一输入
 │   ├── review-report.json          #   审校提交 — novel_submit_review 参数契约
 │   ├── memory-extraction.json      #   事实提取 — novel_submit_extraction 参数契约
 │   ├── outline-structure.json      #   大纲结构 — 书/卷+arc/章三层结构化格式
 │   ├── foreshadowing-system.json   #   伏笔系统 — 注册与生命周期契约
-│   └── cascade-impact-report.json  #   级联影响报告 — 重写后对后续章节的影响分析
+│   ├── cascade-impact-report.json  #   级联影响报告 — 重写后对后续章节的影响分析
+│   ├── premise-cards.json          #   九张立项卡 — setup/revise-premise 数据契约
+│   ├── authored-state.json         #   人工编辑态标记 — 区分机械写入与作者直改字段
+│   ├── character-entity.json       #   角色结构化实体 — world-curator 提交契约
+│   ├── dialogue-samples.json       #   台词语料 — 角色语音特征样本契约
+│   └── state-vocabulary.json       #   受控词表 — 谓词/枚举值域契约
 ├── mcp-server/                     # NovelMemory MCP Server (TypeScript, stdio, SQLite + FTS5)
 ├── templates/                      # 项目初始化模板（init 时复制）
+├── packs/                          # 官方能力包（造包中心的官方供给）
 ├── scripts/                        # 辅助脚本（lint 等）
-├── .mcp.json                       # MCP 配置
 └── docs/                           # 设计文档与规格
 ```
+
+`hooks/` 是旧运行时的 hook 格式遗留物，现行运行时不执行；等价校验逻辑已在 App 侧以 TypeScript 重实现，这里的 `hooks.json` + `scripts/` 仅保留作行为基线参照，不是当前生效机制。
 
 ## 开发
 
