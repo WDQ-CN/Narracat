@@ -1,0 +1,18 @@
+[
+  {
+    "chapter": 1,
+    "title": "血参不见了",
+    "positioning": "开局章。血参失窃，嫌疑落到林晚头上。",
+    "beats": [
+      "入场压力：晨检发现血参连根失窃，草鞋印指向林晚。",
+      "升级：管事翻床板搜出参须，赵伯作保被驳回。",
+      "翻转钩子：切口平整是剑气削断，真凶另有其人。"
+    ],
+    "storyline_focus": ["SL-main"],
+    "characters": [
+      { "character_uid": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "name": "林晚" },
+      { "name": "赵伯" }
+    ],
+    "pov_character": { "character_uid": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "name": "林晚" }
+  }
+]

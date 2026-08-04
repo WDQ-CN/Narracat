@@ -1,0 +1,18 @@
+{
+  "name": "narracat-tooling",
+  "version": "0.0.0",
+  "private": true,
+  "description": "仓库根级 tooling 入口（CI lint 脚本等）。注意：plugin 本体的 MCP server 依赖独立于本 package.json，住在 mcp-server/package.json。",
+  "type": "module",
+  "scripts": {
+    "lint:schema-drift": "node scripts/schema-drift-lint.mjs",
+    "lint:provenance": "node scripts/provenance-lint.mjs",
+    "lint:corpus": "node scripts/corpus-lint.mjs",
+    "lint:corpus-deid": "node scripts/corpus-deid-lint.mjs",
+    "lint:craft-pack": "node scripts/craft-pack-lint.mjs",
+    "lint:structure-pack": "node scripts/structure-pack-lint.mjs",
+    "lint:plugin-paths": "node scripts/plugin-path-lint.mjs",
+    "lint:skill-triggers": "node scripts/skill-triggers-lint.mjs",
+    "lint:manifest-sync": "node scripts/manifest-sync-lint.mjs"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthoredState",
+  "version": "1.0",
+  "description": "作者对角色结构化状态的直接修订（钦定/补录/纠错/删除/确认背书）。App 确定性直调，零 LLM。endorse 就地翻转 source（无内容变更故不走失效链，有意偏差见 CHANGELOG 4.0.108）。",
+  "type": "object",
+  "required": ["character_uid", "action"],
+  "additionalProperties": false,
+  "properties": {
+    "character_uid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "action": { "enum": ["set_current", "backfill", "correct", "retract", "endorse", "mark_secret_known"] },
+    "dimension": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$", "description": "词表维度 key（set_current/backfill 必填）" },
+    "operation": { "enum": ["set", "add", "remove"], "description": "one 维度恒 set；many 维度缺省 add" },
+    "value": { "type": "string", "minLength": 1, "maxLength": 60 },
+    "effective_chapter": { "type": "integer", "minimum": 0, "description": "set_current=自第 N 章起生效；backfill=事实发生章" },
+    "target_fact_id": { "type": "string", "minLength": 8, "description": "correct/retract/endorse 的目标 fact id" },
+    "new_value": { "type": "string", "minLength": 1, "maxLength": 60 },
+    "new_event_chapter": { "type": "integer", "minimum": 0 },
+    "expected_current_value": { "type": "string", "maxLength": 60, "description": "set_current 乐观锁：该维度当前有效最新值不符则拒绝" },
+    "known": { "type": "boolean", "description": "mark_secret_known 专用：true=本人已知晓，false=撤销标记（就地 UPDATE，不走失效链，同 endorse 先例）；其余 action 携带将被拒" },
+    "secret_known": { "type": "boolean", "description": "set_current/backfill 提交 secret 谓词维度时顺手声明「本人已知晓」；非 secret 维度或其余 action 携带将被拒" }
+  },
+  "allOf": [
+    { "if": { "properties": { "action": { "enum": ["set_current", "backfill"] } } },
+      "then": { "required": ["dimension", "value", "effective_chapter"] } },
+    { "if": { "properties": { "action": { "enum": ["correct", "retract", "endorse"] } } },
+      "then": { "required": ["target_fact_id"] } },
+    { "if": { "properties": { "action": { "const": "correct" } } },
+      "then": { "anyOf": [ { "required": ["new_value"] }, { "required": ["new_event_chapter"] } ] } },
+    { "if": { "properties": { "action": { "const": "mark_secret_known" } } },
+      "then": { "required": ["target_fact_id", "known"] } },
+    { "if": { "properties": { "action": { "not": { "const": "mark_secret_known" } } } },
+      "then": { "properties": { "known": false } } },
+    { "if": { "properties": { "action": { "not": { "enum": ["set_current", "backfill"] } } } },
+      "then": { "properties": { "secret_known": false } } }
+  ]
+}

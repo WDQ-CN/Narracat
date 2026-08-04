@@ -1,0 +1,36 @@
+{
+  "chapter": 2,
+  "facts": [
+    {
+      "subject": "林晚",
+      "predicate": "location",
+      "object": "剑冢洒扫弟子，住剑冢偏院",
+      "change_type": "update"
+    },
+    {
+      "subject": "林晚",
+      "predicate": "injury",
+      "object": "右掌被断剑割伤，血珠被剑身吸走",
+      "change_type": "new"
+    },
+    {
+      "subject": "断剑",
+      "predicate": "secret",
+      "object": "剑身会吸血并发出剑鸣，疑有剑灵",
+      "change_type": "new"
+    },
+    {
+      "subject": "林晚",
+      "predicate": "x-bloodline",
+      "object": "血液能引动断剑共鸣（成因未明）",
+      "change_type": "new"
+    }
+  ],
+  "relationship_updates": [
+    {
+      "a": "赵伯",
+      "b": "林晚",
+      "state": "赵伯当众作保失败后愧疚，偷偷塞给林晚干粮"
+    }
+  ]
+}

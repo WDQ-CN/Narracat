@@ -1,0 +1,76 @@
+{
+  "version": "1",
+  "_stage_semantics": "stage-1/stage-2=规划阶段; stage-opening=条件性场景(全书开局)，运行时分层由 SKILL Read 指引承担",
+  "packs": [
+    {
+      "id": "arc-rhythm",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-structure/references/packs/arc-rhythm.md",
+      "dimension": "D1",
+      "stage": "stage-1",
+      "one_line": "副本长短随张力变化、内部2-6章脉动一次，反匀速等长"
+    },
+    {
+      "id": "storyline-weave",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-structure/references/packs/storyline-weave.md",
+      "dimension": "D2",
+      "stage": "stage-1",
+      "one_line": "多线错峰入场+中段收线开新线，反全ch1入场/全结尾收"
+    },
+    {
+      "id": "foreshadow-distance",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-structure/references/packs/foreshadow-distance.md",
+      "dimension": "D3",
+      "stage": "stage-1",
+      "one_line": "小/中/大伏笔按层级布距+长线靠中继续命，反死伏笔"
+    },
+    {
+      "id": "hook-cadence",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-structure/references/packs/hook-cadence.md",
+      "dimension": "C3-hook",
+      "stage": "stage-2",
+      "one_line": "章末钩四型轮换+约七成覆盖，反成片无钩死区"
+    },
+    {
+      "id": "payoff-cadence",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-structure/references/packs/payoff-cadence.md",
+      "dimension": "C3-payoff",
+      "stage": "stage-2",
+      "one_line": "爽点强度金字塔+间隔1-2章，反攒大招饿读者"
+    },
+    {
+      "id": "twist-mechanics",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-structure/references/packs/twist-mechanics.md",
+      "dimension": "C3-twist",
+      "stage": "stage-2",
+      "one_line": "反转=信息差蓄够再单点引爆，反凭空翻盘"
+    },
+    {
+      "id": "pressure-release",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-structure/references/packs/pressure-release.md",
+      "dimension": "C3-pulse",
+      "stage": "stage-2",
+      "one_line": "憋屈1-2章封顶+释放兑具体的债，反连压三章"
+    },
+    {
+      "id": "stakes-ladder",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-structure/references/packs/stakes-ladder.md",
+      "dimension": "C3-stakes",
+      "stage": "stage-2",
+      "one_line": "对抗换对手/加码交替升台阶，反平移换皮"
+    },
+    {
+      "id": "opening-hook",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-structure/references/packs/opening-hook.md",
+      "dimension": "Bp1-opening",
+      "stage": "stage-opening",
+      "one_line": "第一屏生死线+有生活代入+黄金三章形状，反冷起开局"
+    },
+    {
+      "id": "selling-point-front",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-structure/references/packs/selling-point-front.md",
+      "dimension": "Bp1-selling",
+      "stage": "stage-opening",
+      "one_line": "卖点翻译成开局事件+金手指首现约4%书位，反说明书亮相"
+    }
+  ]
+}

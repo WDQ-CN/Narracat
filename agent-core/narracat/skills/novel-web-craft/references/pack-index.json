@@ -1,0 +1,322 @@
+{
+  "packs": [
+    {
+      "pack_id": "humor-dialogue",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-web-craft/references/packs/humor-dialogue.md",
+      "triggers": [
+        "幽默",
+        "调侃",
+        "吐槽",
+        "插科打诨",
+        "耍贫",
+        "打趣",
+        "逗",
+        "抖机灵"
+      ],
+      "beat_types": [
+        "banter"
+      ],
+      "technique_tags": [
+        "对话设计"
+      ],
+      "emotion_tags": [
+        "幽默"
+      ],
+      "exclusions": [
+        "诀别",
+        "悲恸",
+        "沉痛"
+      ],
+      "priority": 2
+    },
+    {
+      "pack_id": "crisis-action",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-web-craft/references/packs/crisis-action.md",
+      "triggers": [
+        "危机",
+        "逼近",
+        "追击",
+        "搏斗",
+        "逃命",
+        "险境",
+        "千钧一发",
+        "动手",
+        "厮杀"
+      ],
+      "beat_types": [
+        "action"
+      ],
+      "technique_tags": [
+        "动作细节"
+      ],
+      "emotion_tags": [
+        "紧张"
+      ],
+      "exclusions": [],
+      "priority": 2
+    },
+    {
+      "pack_id": "comic-action",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-web-craft/references/packs/comic-action.md",
+      "triggers": [
+        "乌龙",
+        "闹剧",
+        "出糗",
+        "反差",
+        "笑料",
+        "滑稽",
+        "手忙脚乱",
+        "翻车"
+      ],
+      "beat_types": [
+        "comic"
+      ],
+      "technique_tags": [
+        "动作细节"
+      ],
+      "emotion_tags": [
+        "幽默"
+      ],
+      "exclusions": [
+        "诀别",
+        "悲恸"
+      ],
+      "priority": 1
+    },
+    {
+      "pack_id": "tense-dialogue",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-web-craft/references/packs/tense-dialogue.md",
+      "triggers": [
+        "对峙",
+        "质问",
+        "逼问",
+        "摊牌",
+        "谈判",
+        "交锋",
+        "试探",
+        "针锋相对",
+        "威胁"
+      ],
+      "beat_types": [
+        "confrontation"
+      ],
+      "technique_tags": [
+        "对话设计"
+      ],
+      "emotion_tags": [
+        "紧张"
+      ],
+      "exclusions": [],
+      "priority": 2
+    },
+    {
+      "pack_id": "payoff-delivery",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-web-craft/references/packs/payoff-delivery.md",
+      "triggers": [
+        "打脸",
+        "真相",
+        "反击",
+        "扬名",
+        "碾压",
+        "看透",
+        "揭穿",
+        "爽点",
+        "逆袭",
+        "一鸣惊人"
+      ],
+      "beat_types": [
+        "payoff"
+      ],
+      "technique_tags": [
+        "动作细节",
+        "节奏控制"
+      ],
+      "emotion_tags": [
+        "震撼"
+      ],
+      "exclusions": [
+        "过渡章",
+        "蓄势"
+      ],
+      "priority": 3
+    },
+    {
+      "pack_id": "romance-tension",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-web-craft/references/packs/romance-tension.md",
+      "triggers": [
+        "暧昧",
+        "心动",
+        "拉扯",
+        "情愫",
+        "欲拒还迎",
+        "脸红",
+        "心跳",
+        "独处",
+        "靠近"
+      ],
+      "beat_types": [
+        "romance"
+      ],
+      "technique_tags": [
+        "对话设计",
+        "动作细节"
+      ],
+      "emotion_tags": [
+        "暧昧"
+      ],
+      "exclusions": [],
+      "priority": 2
+    },
+    {
+      "pack_id": "warm-scene",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-web-craft/references/packs/warm-scene.md",
+      "triggers": [
+        "温情",
+        "甜",
+        "宠",
+        "治愈",
+        "和解",
+        "守护",
+        "告白",
+        "双向奔赴",
+        "相拥"
+      ],
+      "beat_types": [
+        "warmth"
+      ],
+      "technique_tags": [
+        "情感渲染"
+      ],
+      "emotion_tags": [
+        "温暖"
+      ],
+      "exclusions": [],
+      "priority": 1
+    },
+    {
+      "pack_id": "grief-strike",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-web-craft/references/packs/grief-strike.md",
+      "triggers": [
+        "死讯",
+        "诀别",
+        "牺牲",
+        "离别",
+        "背叛",
+        "痛失",
+        "崩溃",
+        "悲恸",
+        "遗憾"
+      ],
+      "beat_types": [
+        "grief"
+      ],
+      "technique_tags": [
+        "心理刻画",
+        "情感渲染"
+      ],
+      "emotion_tags": [
+        "悲伤"
+      ],
+      "exclusions": [],
+      "priority": 2
+    },
+    {
+      "pack_id": "inner-immersion",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-web-craft/references/packs/inner-immersion.md",
+      "triggers": [
+        "内心",
+        "心理活动",
+        "纠结",
+        "挣扎",
+        "回忆",
+        "代入",
+        "心境",
+        "独白"
+      ],
+      "beat_types": [
+        "interiority"
+      ],
+      "technique_tags": [
+        "心理刻画",
+        "视角运用"
+      ],
+      "emotion_tags": [],
+      "exclusions": [],
+      "priority": 1
+    },
+    {
+      "pack_id": "sensory-spectacle",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-web-craft/references/packs/sensory-spectacle.md",
+      "triggers": [
+        "奇观",
+        "画面",
+        "场面",
+        "宏大",
+        "异象",
+        "奇景",
+        "气势",
+        "壮阔"
+      ],
+      "beat_types": [
+        "spectacle"
+      ],
+      "technique_tags": [
+        "环境描写"
+      ],
+      "emotion_tags": [
+        "震撼"
+      ],
+      "exclusions": [],
+      "priority": 1
+    },
+    {
+      "pack_id": "chapter-end-hook",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-web-craft/references/packs/chapter-end-hook.md",
+      "triggers": [
+        "章末",
+        "结尾",
+        "悬念",
+        "钩子",
+        "下一章",
+        "逼近",
+        "伏笔",
+        "预告"
+      ],
+      "beat_types": [
+        "hook"
+      ],
+      "technique_tags": [
+        "悬念设置",
+        "节奏控制"
+      ],
+      "emotion_tags": [
+        "紧张"
+      ],
+      "exclusions": [],
+      "priority": 1
+    },
+    {
+      "pack_id": "pacing-rhythm",
+      "path": "${CLAUDE_PLUGIN_ROOT}/skills/novel-web-craft/references/packs/pacing-rhythm.md",
+      "triggers": [
+        "节奏",
+        "张弛",
+        "高潮",
+        "铺垫",
+        "缓急",
+        "蓄势",
+        "爆发",
+        "收束"
+      ],
+      "beat_types": [
+        "pacing"
+      ],
+      "technique_tags": [
+        "节奏控制"
+      ],
+      "emotion_tags": [],
+      "exclusions": [],
+      "priority": 1
+    }
+  ]
+}

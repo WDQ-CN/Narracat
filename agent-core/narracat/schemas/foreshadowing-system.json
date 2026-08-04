@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ForeshadowingSystem",
+  "version": "5.0.0",
+  "description": "全书伏笔注册表契约。outline-architect 经 novel_submit_outline 随书级大纲注册（条目字段与 OutlineStructure.foreshadowing_registry 一致），novel_register_foreshadowing 供单条补登。伏笔状态一律从 actions_log 最新 action（plant / develop / reveal）机械导出，不另行记账。",
+  "type": "object",
+  "required": ["registry"],
+  "properties": {
+    "registry": {
+      "type": "array",
+      "description": "全书伏笔注册表数组",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "description", "planted_chapter", "target_reveal"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_-]*$",
+            "description": "伏笔唯一标识，大写字母开头，如 \"F01\" / \"F-CONSPIRACY-01\""
+          },
+          "type": {
+            "type": "string",
+            "enum": ["small", "medium", "major"],
+            "description": "small=arc 内兑现 / medium=本卷内兑现 / major=跨卷兑现"
+          },
+          "description": {
+            "type": "string",
+            "description": "伏笔内容描述"
+          },
+          "planted_chapter": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "计划埋设章号"
+          },
+          "target_reveal": {
+            "type": "string",
+            "pattern": "^([1-9][0-9]*|vol-[0-9]{2})$",
+            "description": "计划兑现锚点：章号（如 \"120\"）或卷级粗锚点（如 \"vol-08\"），写作过程中可调整"
+          },
+          "theme_link": {
+            "type": "string",
+            "description": "与中心戏剧问题的联系"
+          }
+        }
+      }
+    }
+  }
+}

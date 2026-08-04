@@ -1,0 +1,40 @@
+{
+  "central_dramatic_question": "林晚能否在宗门覆灭前找出内奸?",
+  "protagonist_core_desire": "重铸断剑",
+  "protagonist_core_lack": "不敢信任自己的判断",
+  "antagonistic_force": "执法堂首座 + 门第倾轧",
+  "stakes_progression": "卷1失去信任→卷2失去资格",
+  "storylines": [
+    {
+      "id": "SL-main",
+      "name": "内奸与剑脉",
+      "type": "main",
+      "priority": 1,
+      "entry_chapter": 1
+    }
+  ],
+  "foreshadowing_registry": [
+    {
+      "id": "F-TRAITOR",
+      "type": "major",
+      "description": "袖口的魔宗火纹刺青",
+      "planted_chapter": 3,
+      "target_reveal": "55"
+    }
+  ],
+  "volumes": [
+    {
+      "volume_no": 1,
+      "title": "杂役峰",
+      "arc_list": [
+        {
+          "arc_id": "V01-A01",
+          "title": "药圃失窃案",
+          "chapter_start": 1,
+          "chapter_end": 12,
+          "core_question": "林晚能否自证清白?"
+        }
+      ]
+    }
+  ]
+}

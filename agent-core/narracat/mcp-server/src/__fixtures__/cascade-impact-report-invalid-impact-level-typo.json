@@ -1,0 +1,19 @@
+{
+  "rewritten_chapter": 20,
+  "has_impact": true,
+  "key_changes": [
+    {
+      "category": "event",
+      "description": "主角与对手的首次正面交锋时机变化"
+    }
+  ],
+  "affected_chapters": [
+    {
+      "chapter": 21,
+      "impact_level": "high",
+      "issues": [
+        "第 3 段动作描写与新版伤势设定冲突"
+      ]
+    }
+  ]
+}

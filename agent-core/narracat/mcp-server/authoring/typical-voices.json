@@ -1,0 +1,9 @@
+{
+  "voices": [
+    { "id": "witty-storyteller", "name": "诙谐说书人风格的书", "voice": { "archetype": "说书人", "tone": "诙谐幽默", "pacing": "明快", "style_keywords": "调侃 吐槽 接地气" } },
+    { "id": "cold-blade", "name": "冷峻凌厉风格的书", "voice": { "archetype": "冷峻旁观者", "tone": "克制锋利", "pacing": "紧凑", "style_keywords": "冷峻 凌厉 留白" } },
+    { "id": "skin-close", "name": "细腻贴肤风格的书", "voice": { "archetype": "贴身视角", "tone": "细腻温热", "pacing": "舒缓", "style_keywords": "细腻 感官 贴肤" } },
+    { "id": "epic-grand", "name": "恢弘史诗风格的书", "voice": { "archetype": "史诗叙事者", "tone": "厚重恢弘", "pacing": "大开大合", "style_keywords": "苍茫 宿命 群像" } },
+    { "id": "plain", "name": "未设定明显风格的书", "voice": { "archetype": "", "tone": "", "pacing": "", "style_keywords": "" } }
+  ]
+}

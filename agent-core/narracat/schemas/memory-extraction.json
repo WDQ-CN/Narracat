@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MemoryExtraction",
+  "version": "5.0.0",
+  "description": "novel_submit_extraction 工具的参数契约。memory-keeper 提交本章事实变更清单；工具入口做受控谓词校验、角色别名归一（按 bible 角色档案「别名:」声明归一到 canonical 名）、relationship 主体字典序 (a,b) 归一，并维护事实生效区间与 invalidated_at_chapter。",
+  "type": "object",
+  "required": ["chapter", "facts"],
+  "properties": {
+    "chapter": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "来源章节号"
+    },
+    "facts": {
+      "type": "array",
+      "description": "本章新增/变更/失效的事实。无变更提交空数组",
+      "items": {
+        "type": "object",
+        "required": ["subject", "predicate", "object", "change_type"],
+        "properties": {
+          "subject": {
+            "type": "string",
+            "description": "主体（角色名/势力名/物件名）"
+          },
+          "predicate": {
+            "type": "string",
+            "pattern": "^(identity|location|possession|goal|injury|ability|status|secret|reputation|oath|debt|relationship|x-[\\u4e00-\\u9fffa-z][\\u4e00-\\u9fffa-z0-9_]*)$",
+            "description": "受控谓词 12 词表：identity / location / possession / goal / injury / ability / status / secret / reputation / oath / debt / relationship。词表外的谓词用 x- 前缀自拟中文短名（如 \"x-恐惧\"）——后缀会原样展示给作者；英文小写 snake_case 后缀仅为存量兼容。可入库但计入 warnings"
+          },
+          "object": {
+            "type": "string",
+            "description": "谓词的值，具体内容一句话"
+          },
+          "change_type": {
+            "type": "string",
+            "enum": ["new", "update", "invalidate"],
+            "description": "new=新事实；update=替换同键旧值（旧值的 invalidated_at_chapter 写为本章号）；invalidate=仅失效不立新值"
+          },
+          "upsert_key": {
+            "type": "string",
+            "description": "update/invalidate 时定位既有事实的键；缺省按 subject+predicate 匹配最新一条"
+          }
+        }
+      }
+    },
+    "relationship_updates": {
+      "type": "array",
+      "description": "角色关系变化。工具内按字典序 (a,b) 归一后入库",
+      "items": {
+        "type": "object",
+        "required": ["a", "b", "state"],
+        "properties": {
+          "a": {
+            "type": "string",
+            "description": "角色名"
+          },
+          "b": {
+            "type": "string",
+            "description": "角色名"
+          },
+          "state": {
+            "type": "string",
+            "description": "当前关系状态一句话，如「表面盟友，互相提防」"
+          }
+        }
+      }
+    }
+  }
+}

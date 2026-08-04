@@ -1,0 +1,49 @@
+[
+  {
+    "chapter": 1,
+    "title": "血参不见了",
+    "positioning": "开局章。林晚在杂役峰的安稳被血参失窃打破，嫌疑当场落到他自己头上，主角被推入必须自证清白的处境，同时埋下切口是剑气削断的疑点。",
+    "beats": [
+      "入场压力：晨检发现药圃血参连根失窃，泥土上只有林晚常穿的草鞋印，怀疑当场落到他头上。",
+      "升级：药圃管事当众翻开林晚的床板，搜出半截带泥的参须，赵伯替他作保却被驳回、罚俸三月。",
+      "翻转钩子：林晚捏着参须发现切口平整，是剑气削断的，而整个杂役峰没人会用剑，真凶另有其人。"
+    ],
+    "must_deliver": ["参须切口平整这一物证要靠林晚亲眼所见呈现，不靠旁白点破"],
+    "storyline_focus": ["SL-main"],
+    "characters": [
+      { "character_uid": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "name": "林晚" },
+      { "character_uid": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e", "name": "赵伯" }
+    ],
+    "pov_character": { "character_uid": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "name": "林晚" },
+    "foreshadowing_touch": [
+      {
+        "id": "S-HERB",
+        "action": "plant"
+      }
+    ]
+  },
+  {
+    "chapter": 2,
+    "title": "剑冢的扫地名额",
+    "positioning": "承接章。嫌疑升级成放逐，林晚被贬去剑冢洒扫，看似跌到谷底；却在断剑割掌时揭开金手指初兆：血珠被剑身吸走、断剑认主，是全书第一次真相揭示。",
+    "beats": [
+      "入场压力：执事堂当庭宣判，调剑冢洒扫三年，等同断了修行路，妹妹的药钱也悬了。",
+      "升级：林晚强压屈辱走向剑冢，山门口一柄插在土里的断剑割破他的手掌。",
+      "翻转·揭示：血珠渗进剑身没有流下来，他听见极轻的一声剑鸣，断剑认主，金手指初现。"
+    ],
+    "must_deliver": ["血珠被剑身吸走、剑鸣认主这一真相揭示要有画面冲击，兑现真相揭示的爽点"],
+    "payoff_beat": "reveal",
+    "storyline_focus": ["SL-main", "SL-growth"],
+    "characters": [
+      { "character_uid": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "name": "林晚" },
+      { "character_uid": "d4e5f6a7-b8c9-4d0e-9f1a-3b4c5d6e7f80", "name": "执事" }
+    ],
+    "pov_character": { "character_uid": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "name": "林晚" },
+    "foreshadowing_touch": [
+      {
+        "id": "F-SWORD-CORE",
+        "action": "plant"
+      }
+    ]
+  }
+]

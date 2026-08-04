@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@shared/*": ["./shared/*"]
+    },
+    "types": ["node"],
+    "composite": true
+  },
+  "include": [
+    "scripts/**/*.ts",
+    "electron/**/*.ts",
+    "electron/**/*.cts",
+    "electron.vite.config.ts",
+    "shared/**/*.ts",
+    "src/lib/agent-events.ts"
+  ],
+  "exclude": ["node_modules", "out", "dist", "poc", "**/*.test.ts"]
+}

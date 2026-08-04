@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CharacterEntity",
+  "version": "1.0.0",
+  "description": "角色结构化实体（出生证）：身份字段 + 初始状态。由 novel_submit_character_entity 写入 bible/characters/<name>.json，并把 initial_states 同步为 source=authored 的 facts（生效章默认 0，中途转正角色传出场章）。json 只存出生证不做实时快照，逐章演变真相在 facts。身份字段（uid/名字/别名/性别/年龄）所有权归本契约，工具机械同步 md 顶部 character_identity 注释与「别名:」行。",
+  "type": "object",
+  "required": ["name"],
+  "additionalProperties": false,
+  "properties": {
+    "character_uid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "description": "canonical 身份（lowercase UUID v4）。省略由工具铸造；候选转正传既有 UID 复用同一身份"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 30,
+      "pattern": "^[^./\\\\][^/\\\\]*$",
+      "description": "canonical 显示名（同 bible/characters/<name>.md 文件名）。禁含路径分隔符 / 或 \\，禁以 . 开头，防写入口逃逸出 bible/characters/ 目录"
+    },
+    "aliases": {
+      "type": "array",
+      "maxItems": 12,
+      "items": { "type": "string", "minLength": 1, "maxLength": 20 },
+      "description": "别名/称号/马甲；工具机械同步进 md「别名:」行供别名归一消费"
+    },
+    "gender": { "type": "string", "maxLength": 8, "description": "性别（自由短文本，跨题材不设枚举）" },
+    "age": { "type": "string", "maxLength": 20, "description": "初始年龄描述（如「18 岁」「看似二十许」）。系统不自动演变" },
+    "effective_chapter": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "初始状态生效章：建书期角色=0（省略默认）；中途转正角色=首次出场章"
+    },
+    "initial_states": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["dimension", "value"],
+        "additionalProperties": false,
+        "properties": {
+          "dimension": { "type": "string", "description": "状态词表里的维度 key；值必须能通过该维度校验（enum 维度值 ∈ values）" },
+          "value": { "type": "string", "minLength": 1, "maxLength": 60 },
+          "note": { "type": "string", "maxLength": 100, "description": "一句话缘由（可选，进 fact 不单独存）" }
+        }
+      },
+      "description": "初始状态列表；many 维度可多条同 dimension（如两件持有物）"
+    }
+  }
+}

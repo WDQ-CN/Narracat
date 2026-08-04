@@ -1,0 +1,53 @@
+name: Agent Core Schema PR Downstream Impact Check
+
+# 当 PR 改动 agent-core/narracat/schemas/*.json 时强制 PR description 含"下游影响"评估。
+# 背景: B0 spec §7.1 R6 / ADR-0008（schema 软门槛 + 用户项目目录冻结）。
+# 用户已基于本 plugin 构建客户端，schema 变动可能 silent breaking change。
+# 缺失关键字 → workflow 失败 → review 阻塞。
+#
+# 仓库根桥接：原 workflow 住在 agent-core/narracat/.github/workflows/ 从不执行（issue #237）。
+# 触发路径已从 'schemas/**.json' 调整为 'agent-core/narracat/schemas/**.json'（cutover 后真实位置）；
+# 关键字检查逻辑未改动（仅迁移触发位置）。
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    paths:
+      - 'agent-core/narracat/schemas/**.json'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check-downstream-impact:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR body for downstream impact assessment
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          # 匹配关键字（大小写不敏感，中英文兼容）
+          # 中文: "下游影响" / "下游兼容" / "客户端影响" / "兼容性影响"
+          # 英文: "downstream impact" / "downstream compat" / "client impact" / "breaking change"
+          PATTERN='下游影响|下游兼容|客户端影响|兼容性影响|downstream[[:space:]]+impact|downstream[[:space:]]+compat|client[[:space:]]+impact|breaking[[:space:]]+change'
+
+          if [ -z "${PR_BODY}" ]; then
+            echo "::error::PR #${PR_NUMBER} description 为空。改动 schemas/*.json 必须填写'下游影响'评估。"
+            echo "::error::请参考 .github/PULL_REQUEST_TEMPLATE.md 的 schema 改动 section。"
+            exit 1
+          fi
+
+          if echo "${PR_BODY}" | grep -iE "${PATTERN}" > /dev/null; then
+            echo "PR description 含'下游影响'评估关键字，通过。"
+            echo "${PR_BODY}" | grep -iE "${PATTERN}" | head -3
+          else
+            echo "::error::PR #${PR_NUMBER} 改动了 schemas/*.json 但 description 未含'下游影响'评估。"
+            echo "::error::请在 PR description 中加入下游影响章节（关键字之一：下游影响 / 下游兼容 / 客户端影响 / 兼容性影响 / downstream impact / breaking change）。"
+            echo "::error::模板见 .github/PULL_REQUEST_TEMPLATE.md。"
+            echo "::error::背景: ADR-0008（schema 软门槛）。"
+            exit 1
+          fi

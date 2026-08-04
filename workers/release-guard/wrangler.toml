@@ -1,0 +1,5 @@
+# 内测「释放门控」Worker（#354）。部署后拿到的 URL 填进
+# electron/main/release-guard.ts 的 RELEASE_GUARD_URL。
+name = "narracat-release-guard"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"

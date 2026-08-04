@@ -1,0 +1,15 @@
+{
+  "rewritten_chapter": 20,
+  "has_impact": true,
+  "key_changes": [
+    {
+      "description": "事件改写但没填 category"
+    }
+  ],
+  "affected_chapters": [
+    {
+      "chapter": 21,
+      "impact_level": "critical"
+    }
+  ]
+}

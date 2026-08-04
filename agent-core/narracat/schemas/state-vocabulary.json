@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StateVocabulary",
+  "version": "1.0.0",
+  "description": "本书状态词表：把 12 受控谓词投影为作者视角的「状态维度」。维度是编辑/折叠/计划账本的单位；谓词是抽取层词汇。enum 维度按值域认领 facts，many 维度按谓词兜底认领，归不进的落「其他」区。由 novel_submit_state_vocabulary 写入 bible/state-vocabulary.json。",
+  "type": "object",
+  "required": [
+    "dimensions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "items": {
+        "$ref": "#/$defs/dimension"
+      }
+    }
+  },
+  "$defs": {
+    "dimension": {
+      "type": "object",
+      "required": [
+        "key",
+        "predicate",
+        "display_name",
+        "cardinality",
+        "value_type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{1,31}$",
+          "description": "维度稳定标识（英文 snake_case），如 cultivation_level / inventory / life_status"
+        },
+        "predicate": {
+          "type": "string",
+          "pattern": "^(identity|location|possession|goal|injury|ability|status|secret|reputation|oath|debt|relationship|x-[\\u4e00-\\u9fffa-z][\\u4e00-\\u9fffa-z0-9_]*)$",
+          "description": "该维度挂靠的受控谓词（抽取层词汇不变，维度归属由读侧机械完成）。（受控谓词词表与 memory-extraction 同源，pattern 表达；x- 前缀为自定义谓词逃生舱，后缀中文短名，英文后缀仅为存量兼容）"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12,
+          "description": "作者视角显示名（中文），如「境界」「持有物」「生死」"
+        },
+        "cardinality": {
+          "type": "string",
+          "enum": [
+            "one",
+            "many"
+          ],
+          "description": "one=单值（当前值=值域内最新有效 fact）/ many=集合（全部有效 fact 并列展示）"
+        },
+        "value_type": {
+          "type": "string",
+          "enum": [
+            "enum",
+            "free"
+          ],
+          "description": "enum=值必须取自 values 梯子（编辑 UI 渲染下拉）/ free=自由文本值"
+        },
+        "values": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 30,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20
+          },
+          "description": "value_type=enum 时必填：值域梯子（如 练气→筑基→金丹→元婴，顺序即递进序）。值一律用中文（作品语言）——会原样进状态卡与写作上下文；英文机器名只允许出现在 key"
+        }
+      },
+      "if": {
+        "properties": {
+          "value_type": {
+            "const": "enum"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "values"
+        ]
+      }
+    }
+  }
+}

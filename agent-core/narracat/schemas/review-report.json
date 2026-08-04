@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReviewReport",
+  "version": "5.0.0",
+  "description": "novel_submit_review 工具的参数契约。continuity-editor 审校后提交客观错误清单；verdict 由代码计算（存在任一 blocker 即 fail，否则 pass），reviews/ch-NNN-review.md（含「审修结果: PASS」或「审修结果: FAIL」行）由工具机械渲染，主会话经 novel_get_review 读取 verdict 与 blockers 路由。落盘的报告可能含工具机械补充的顶层字段 word_count（成稿可见正文字数，剥 chapter_metadata 注释后计）与 word_count_warning（低于 words_per_chapter 目标 70% 时在场，{actual, target, ratio}）——字数守卫是机械度量，不进 issues、不影响 verdict（finding-only）。",
+  "type": "object",
+  "required": ["chapter", "issues"],
+  "properties": {
+    "chapter": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "被审章节号"
+    },
+    "issues": {
+      "type": "array",
+      "description": "问题清单。无问题提交空数组（verdict=pass）",
+      "items": {
+        "type": "object",
+        "required": ["severity", "where", "what", "fix_hint"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["blocker", "note"],
+            "description": "blocker=确认的客观错误，触发 fail 并回写手定向修复；note=可疑但不确定，不影响 verdict"
+          },
+          "where": {
+            "type": "string",
+            "description": "问题位置，如「第 3 段」「李远的台词」"
+          },
+          "what": {
+            "type": "string",
+            "description": "问题是什么，一句话，含具体内容"
+          },
+          "fix_hint": {
+            "type": "string",
+            "description": "修复建议，一句话，可直接转为修改动作"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "change_kind": "character_added",
+  "added_character": "周伯",
+  "insertion_point": "retroactive",
+  "proposed_chapter": 5,
+  "has_impact": true,
+  "key_changes": [
+    {
+      "category": "character_added",
+      "description": "新增管家周伯，设定上他从第 5 章起一直在主角宅中，需回填进已写的 5-12 章"
+    },
+    {
+      "category": "relationship",
+      "description": "周伯与主角的主仆关系应在第 5 章建立"
+    }
+  ],
+  "affected_chapters": [
+    {
+      "chapter": 5,
+      "impact_level": "moderate",
+      "issues": [
+        "第 5 章主角入住宅邸时无人接应，应补周伯接应",
+        "需回填周伯与主角的主仆关系 fact"
+      ],
+      "suggested_fix": "memory-keeper 回填第 5 章 facts/关系；正文是否补写交作者决定"
+    },
+    {
+      "chapter": 9,
+      "impact_level": "minor",
+      "issues": [
+        "第 9 章『宅中空无一人』与周伯常驻设定轻微冲突"
+      ],
+      "suggested_fix": "标注 continuity，按需微调措辞"
+    }
+  ]
+}

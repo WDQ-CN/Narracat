@@ -1,0 +1,22 @@
+{
+  "name": "@narracat/workbench-generation-loading-remotion",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "bun run render:light && bun run render:dark && bun run still:light && bun run still:dark",
+    "render:light": "remotion render src/index.ts WorkbenchGenerationLoading ../assets/generation-loading-light.webm --props='{\"theme\":\"light\"}' --image-format=png --pixel-format=yuva420p --codec=vp9 --overwrite",
+    "render:dark": "remotion render src/index.ts WorkbenchGenerationLoading ../assets/generation-loading-dark.webm --props='{\"theme\":\"dark\"}' --image-format=png --pixel-format=yuva420p --codec=vp9 --overwrite",
+    "still:light": "remotion still src/index.ts WorkbenchGenerationLoading ../assets/generation-loading-light.png --props='{\"theme\":\"light\"}' --frame=18 --overwrite",
+    "still:dark": "remotion still src/index.ts WorkbenchGenerationLoading ../assets/generation-loading-dark.png --props='{\"theme\":\"dark\"}' --frame=18 --overwrite"
+  },
+  "devDependencies": {
+    "@remotion/cli": "^4.0.391",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "remotion": "^4.0.391",
+    "typescript": "^6.0.3"
+  }
+}

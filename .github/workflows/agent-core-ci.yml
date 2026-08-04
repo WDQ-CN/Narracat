@@ -1,0 +1,90 @@
+name: Agent Core CI
+
+# 仓库根桥接 workflow：让 agent-core/narracat 的 lint 与 mcp-server 构建真实跑在 GitHub Actions 上。
+# 背景：agent-core 还是上游独立仓库时，workflow 住在 agent-core/narracat/.github/workflows/；
+# ADR-0007 cutover 进本仓库后未跟进——GitHub Actions 只读取仓库根 .github/workflows/，
+# 子目录下的 workflow 从不执行（见 issue #237）。本 workflow 把执行位置桥接回仓库根。
+#
+# 路径过滤：仅 agent-core/** 变更时跑，App 层改动不触发。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agent-core/**'
+      - '.github/workflows/agent-core-ci.yml'
+  pull_request:
+    paths:
+      - 'agent-core/**'
+      - '.github/workflows/agent-core-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  agent-core-lint:
+    name: Agent Core Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-core/narracat
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # 根 package.json 的 lint 脚本零 runtime 依赖（仅用 Node 内置 fs/path/url），
+      # 无需 npm ci，直接 npm run 走规范入口即可。各步 if: always() 互不短路，
+      # 一次 PR 暴露全部问题而非首个失败即停。
+      - name: Run schema drift lint
+        run: npm run lint:schema-drift
+      - name: Run provenance lint
+        if: ${{ always() }}
+        run: npm run lint:provenance
+      - name: Run corpus lint
+        if: ${{ always() }}
+        run: npm run lint:corpus
+      - name: Run corpus deid lint
+        if: ${{ always() }}
+        run: npm run lint:corpus-deid
+      - name: Run craft-pack lint
+        if: ${{ always() }}
+        run: npm run lint:craft-pack
+      - name: Run structure-pack lint
+        if: ${{ always() }}
+        run: npm run lint:structure-pack
+      - name: Run plugin path lint
+        if: ${{ always() }}
+        run: npm run lint:plugin-paths
+      - name: Run skill triggers lint
+        if: ${{ always() }}
+        run: npm run lint:skill-triggers
+      - name: Run manifest sync lint
+        if: ${{ always() }}
+        run: npm run lint:manifest-sync
+
+  agent-core-eval-tests:
+    name: Agent Core Eval Deterministic Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      # eval lib 是零依赖纯函数（match/fixtures 的比对与场景发现），免 LLM、免 better-sqlite3，
+      # 可安全进 CI；质量 eval（run.mjs 端到端）真调抽取模型，永不进 CI。
+      - name: Run extraction eval lib tests
+        run: bun test ./agent-core/narracat/eval
+
+  agent-core-mcp-build:
+    name: Agent Core MCP Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-core/narracat/mcp-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build
+      - run: npm test

@@ -1,0 +1,50 @@
+{
+  "rewritten_chapter": 20,
+  "has_impact": true,
+  "key_changes": [
+    {
+      "category": "event",
+      "description": "主角与对手的首次正面交锋从第 20 章末尾改到本章中段",
+      "old_value": "第 20 章末尾两人短暂对话，未起冲突",
+      "new_value": "本章中段直接交手，主角受伤"
+    },
+    {
+      "category": "character_state",
+      "description": "主角在重写后此章末尾受了肩伤",
+      "old_value": "无伤",
+      "new_value": "左肩受刀伤，三个月内不能用力"
+    },
+    {
+      "category": "foreshadowing",
+      "description": "F02 旧债簿伏笔本章被提前揭示一半",
+      "old_value": "F02 计划在第 25 章揭示",
+      "new_value": "F02 本章已被对手暗示，需调整后续节奏"
+    }
+  ],
+  "affected_chapters": [
+    {
+      "chapter": 21,
+      "impact_level": "critical",
+      "issues": [
+        "第 3 段写主角『毫发无伤地翻身上马』与新版肩伤设定冲突",
+        "第 7 段主角用左手拔剑应改为右手或描写疼痛"
+      ],
+      "suggested_fix": "改写主角的所有体能动作描写，引入伤势的不便；并在本章开头补一句『左肩仍在隐隐作痛』作为衔接"
+    },
+    {
+      "chapter": 22,
+      "impact_level": "moderate",
+      "issues": [
+        "F02 旧债簿的揭示节奏需调整，避免本章重复揭示"
+      ],
+      "suggested_fix": "本章不再揭示 F02，改为铺垫 F03"
+    },
+    {
+      "chapter": 23,
+      "impact_level": "minor",
+      "issues": [
+        "对话中提及『上次没动手』需改为『上次动了手』"
+      ]
+    }
+  ]
+}

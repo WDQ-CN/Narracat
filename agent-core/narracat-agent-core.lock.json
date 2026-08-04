@@ -1,0 +1,19 @@
+{
+  "path": "agent-core/narracat-agent-core.lock.json",
+  "name": "narracat",
+  "version": "4.0.161",
+  "manifestPath": "narracat.manifest.json",
+  "upstream": {
+    "repo": "the-lumos-labs/NarraCat",
+    "commit": "7288b30ce6dc9e41d5efc0c81bb763cb945e3b22",
+    "manifestVersion": "3.10.22"
+  },
+  "acceptedImport": {
+    "stage": "stage-1-final-upstream-import",
+    "issue": "https://github.com/the-lumos-labs/narracat-decktop/issues/92",
+    "acceptedAt": "2026-06-02",
+    "sourcePath": "agent-core/narracat"
+  },
+  "updateCommand": "Edit agent-core/narracat directly as NarraCat Agent Core source.",
+  "checkCommand": "bun --no-cache run verify:narracat-agent-core"
+}

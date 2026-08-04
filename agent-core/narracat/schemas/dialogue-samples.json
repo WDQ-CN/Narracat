@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DialogueSamples",
+  "description": "novel_submit_dialogue_samples 工具的参数契约。memory-keeper 提交本章角色台词语料；工具入口做 ajv 校验后写入 character_dialogue_samples 表。",
+  "type": "object",
+  "required": ["chapter", "samples"],
+  "properties": {
+    "chapter": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "来源章节号"
+    },
+    "samples": {
+      "type": "array",
+      "description": "本章提取的台词样本列表，无台词可提交空数组",
+      "items": {
+        "type": "object",
+        "required": ["character", "dialogue_text", "dialogue_type"],
+        "properties": {
+          "character": {
+            "type": "string",
+            "minLength": 1,
+            "description": "角色显示名（提取时使用的名字，别名归一在工具入口完成）"
+          },
+          "dialogue_text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "台词原文，逐字摘录不改写不编造，不超过 500 字符"
+          },
+          "dialogue_type": {
+            "type": "string",
+            "enum": ["dialogue", "monologue", "thought", "action_narration"],
+            "description": "台词类型：dialogue=对话台词 / monologue=独白 / thought=心理活动 / action_narration=动作旁白"
+          },
+          "context": {
+            "type": "string",
+            "description": "台词所处场景背景（可选，帮助理解台词含义）"
+          },
+          "emotion": {
+            "type": "string",
+            "description": "台词当时的情绪（可选，如 angry / calm / sarcastic）"
+          },
+          "position_in_chapter": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "台词在章节中的大致位置（可选，段落序号或字符偏移）"
+          }
+        }
+      }
+    }
+  }
+}

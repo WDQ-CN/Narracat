@@ -1,0 +1,1162 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>唠个嗑 · 三种沉浸式方向</title>
+    <style>
+      @font-face {
+        font-family: MiSans;
+        src: url("../../../../src/assets/fonts/misans/MiSansVF.woff2") format("woff2");
+        font-weight: 100 900;
+      }
+
+      :root {
+        --canvas: #f4f4f5;
+        --workspace: #ffffff;
+        --ink: #18181b;
+        --body: #3f3f46;
+        --muted: #71717a;
+        --hint: #a1a1aa;
+        --line: rgba(24, 24, 27, 0.08);
+        --line-strong: rgba(24, 24, 27, 0.14);
+        --active: rgba(24, 24, 27, 0.055);
+        --hover: rgba(24, 24, 27, 0.035);
+        --brand: #04c853;
+        --brand-soft: rgba(4, 200, 83, 0.1);
+        --brand-border: rgba(4, 200, 83, 0.25);
+        --shadow: 0 24px 70px rgba(24, 24, 27, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: MiSans, Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+        letter-spacing: 0;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .page {
+        min-height: 100vh;
+        padding: 28px;
+      }
+
+      .workspace {
+        width: min(1440px, calc(100vw - 56px));
+        height: min(880px, calc(100vh - 56px));
+        min-height: 720px;
+        margin: 0 auto;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--workspace);
+        box-shadow: var(--shadow);
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 58px;
+        padding: 0 18px 0 22px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .brandline {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .mark {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        overflow: hidden;
+        border: 1px solid var(--brand-border);
+        border-radius: 8px;
+        background: var(--brand-soft);
+      }
+
+      .mark img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .titleblock {
+        min-width: 0;
+      }
+
+      .titleblock h1 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 650;
+        line-height: 1.2;
+      }
+
+      .titleblock p {
+        margin: 3px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .pill,
+      .ghost-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--body);
+        font-size: 12px;
+        font-weight: 520;
+        white-space: nowrap;
+      }
+
+      .pill {
+        padding: 0 10px;
+      }
+
+      .ghost-button {
+        padding: 0 11px;
+      }
+
+      .variant {
+        display: none;
+        height: calc(100% - 58px);
+      }
+
+      .variant.is-active {
+        display: block;
+      }
+
+      .variant-shell {
+        display: grid;
+        height: 100%;
+      }
+
+      .contact-list {
+        min-width: 0;
+        border-right: 1px solid var(--line);
+        background: rgba(250, 250, 250, 0.72);
+      }
+
+      .contact-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 58px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .contact-header h2,
+      .panel-title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .contact-header span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .search {
+        margin: 14px 14px 10px;
+      }
+
+      .search input {
+        width: 100%;
+        height: 36px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+        color: var(--ink);
+        padding: 0 12px;
+        outline: none;
+      }
+
+      .contacts {
+        display: grid;
+        gap: 6px;
+        padding: 0 10px 14px;
+      }
+
+      .contact {
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        min-height: 62px;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        background: transparent;
+        padding: 8px 9px;
+        color: inherit;
+        text-align: left;
+      }
+
+      .contact:hover {
+        background: var(--hover);
+      }
+
+      .contact.is-selected {
+        border-color: var(--line);
+        background: #fff;
+        box-shadow: 0 8px 20px rgba(24, 24, 27, 0.06);
+      }
+
+      .avatar,
+      .portrait-thumb {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        background: #f4f4f5;
+      }
+
+      .avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+      }
+
+      .avatar img,
+      .portrait-thumb img,
+      .hero-portrait img,
+      .cutin img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .contact-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .contact-status {
+        display: block;
+        overflow: hidden;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .contact-time {
+        color: var(--hint);
+        font-size: 11px;
+      }
+
+      .chat-main {
+        min-width: 0;
+        background: #fff;
+      }
+
+      .chat-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 58px;
+        padding: 0 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .chat-identity {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        gap: 11px;
+      }
+
+      .chat-identity h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .chat-identity p {
+        margin: 3px 0 0;
+        overflow: hidden;
+        color: var(--muted);
+        font-size: 12px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .status-dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--brand);
+        box-shadow: 0 0 0 4px var(--brand-soft);
+      }
+
+      .thread {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .message {
+        display: flex;
+        max-width: min(620px, 84%);
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .message.is-user {
+        align-self: flex-end;
+        align-items: flex-end;
+      }
+
+      .bubble {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px 14px;
+        color: var(--body);
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      .message.is-character .bubble {
+        background: #fff;
+      }
+
+      .message.is-user .bubble {
+        border-color: transparent;
+        background: #18181b;
+        color: #fff;
+      }
+
+      .stamp {
+        color: var(--hint);
+        font-size: 11px;
+      }
+
+      .composer {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 10px 20px 20px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        padding: 10px;
+      }
+
+      .composer input {
+        min-width: 0;
+        flex: 1;
+        height: 36px;
+        border: 0;
+        color: var(--ink);
+        outline: none;
+      }
+
+      .send {
+        height: 34px;
+        border: 0;
+        border-radius: 9px;
+        background: #18181b;
+        color: #fff;
+        padding: 0 14px;
+        font-size: 13px;
+        font-weight: 620;
+      }
+
+      .prompt-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: auto 20px 0;
+      }
+
+      .prompt-chips button {
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.82);
+        color: var(--body);
+        padding: 0 11px;
+        font-size: 12px;
+      }
+
+      .context-panel {
+        min-width: 0;
+        border-left: 1px solid var(--line);
+        background: #fafafa;
+      }
+
+      .context-inner {
+        display: grid;
+        gap: 14px;
+        padding: 16px;
+      }
+
+      .profile-card,
+      .memory-card,
+      .scene-card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        padding: 14px;
+      }
+
+      .profile-card h3,
+      .memory-card h3,
+      .scene-card h3 {
+        margin: 0 0 10px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .meta-list {
+        display: grid;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .meta-list li {
+        color: var(--body);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+      }
+
+      .tag {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fafafa;
+        color: var(--muted);
+        padding: 4px 8px;
+        font-size: 11px;
+      }
+
+      /* Option 1 */
+      .option-a .variant-shell {
+        position: relative;
+        grid-template-columns: 292px minmax(0, 1fr);
+      }
+
+      .option-a .chat-main {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+      }
+
+      .option-a .thread {
+        flex: 1;
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.92)),
+          url("../../../../src/assets/illustrations/narracat/laptop-chat.webp") right 28px bottom 18px / 220px auto no-repeat;
+      }
+
+      .option-a .context-panel {
+        position: absolute;
+        top: 0;
+        right: 0;
+        z-index: 8;
+        width: 320px;
+        height: 100%;
+        transform: translateX(104%);
+        opacity: 0;
+        pointer-events: none;
+        box-shadow: -22px 0 60px rgba(24, 24, 27, 0.12);
+        transition:
+          transform 180ms ease,
+          opacity 180ms ease;
+      }
+
+      .option-a .context-panel.is-open {
+        transform: translateX(0);
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .drawer-titlebar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--line);
+        padding: 14px 16px;
+      }
+
+      .drawer-titlebar h3 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .icon-button {
+        display: inline-grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--body);
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      /* Option 2 */
+      .option-b {
+        --ink: #211a14;
+        --body: #4a4036;
+        --muted: #746859;
+        --line: rgba(43, 31, 19, 0.1);
+      }
+
+      .option-b .variant-shell {
+        grid-template-columns: 250px minmax(0, 1fr);
+        background: #f5f1ea;
+      }
+
+      .option-b .contact-list {
+        background: rgba(255, 252, 246, 0.72);
+      }
+
+      .cinematic-stage {
+        position: relative;
+        display: grid;
+        min-width: 0;
+        grid-template-rows: 1fr auto;
+        overflow: hidden;
+        background:
+          linear-gradient(90deg, rgba(33, 26, 20, 0.72), rgba(33, 26, 20, 0.18)),
+          url("../../../../src/assets/illustrations/narracat/fantasy-reading.webp") center / cover no-repeat;
+      }
+
+      .stage-header {
+        position: absolute;
+        top: 18px;
+        right: 22px;
+        left: 22px;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #fff;
+      }
+
+      .stage-header h2 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 760;
+      }
+
+      .stage-header p {
+        margin: 5px 0 0;
+        color: rgba(255, 255, 255, 0.76);
+        font-size: 12px;
+      }
+
+      .knowledge-lock {
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.14);
+        color: rgba(255, 255, 255, 0.86);
+        padding: 7px 11px;
+        font-size: 12px;
+      }
+
+      .hero-portrait {
+        position: absolute;
+        right: 34px;
+        bottom: 154px;
+        width: 280px;
+        height: 360px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.26);
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.18);
+        box-shadow: 0 28px 70px rgba(0, 0, 0, 0.26);
+      }
+
+      .stage-transcript {
+        align-self: end;
+        z-index: 2;
+        margin: 0 24px 22px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 22px 60px rgba(0, 0, 0, 0.22);
+      }
+
+      .stage-nameplate {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid rgba(43, 31, 19, 0.1);
+        padding: 12px 16px;
+      }
+
+      .stage-nameplate strong {
+        font-size: 14px;
+      }
+
+      .stage-nameplate span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .stage-dialogue {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 240px;
+        gap: 16px;
+        padding: 16px;
+      }
+
+      .stage-dialogue p {
+        margin: 0;
+        color: var(--body);
+        font-size: 16px;
+        line-height: 1.9;
+      }
+
+      .choice-stack {
+        display: grid;
+        gap: 8px;
+      }
+
+      .choice-stack button {
+        min-height: 38px;
+        border: 1px solid rgba(43, 31, 19, 0.12);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.68);
+        color: var(--body);
+        padding: 8px 10px;
+        text-align: left;
+      }
+
+      /* Option 3 */
+      .option-c {
+        --canvas-dark: #121316;
+        --workspace-dark: #1b1d21;
+        --panel-dark: #202328;
+        --ink: #f5f5f5;
+        --body: #d4d4d8;
+        --muted: #a1a1aa;
+        --hint: #71717a;
+        --line: rgba(255, 255, 255, 0.1);
+        --line-strong: rgba(255, 255, 255, 0.18);
+      }
+
+      .option-c .variant-shell {
+        grid-template-columns: 280px minmax(0, 1fr) 320px;
+        background: var(--workspace-dark);
+        color: var(--ink);
+      }
+
+      .option-c .contact-list,
+      .option-c .context-panel {
+        background: #17191d;
+      }
+
+      .option-c .contact.is-selected,
+      .option-c .profile-card,
+      .option-c .memory-card,
+      .option-c .scene-card {
+        background: var(--panel-dark);
+      }
+
+      .option-c .search input,
+      .option-c .composer,
+      .option-c .composer input,
+      .option-c .ghost-button,
+      .option-c .pill,
+      .option-c .message.is-character .bubble,
+      .option-c .tag {
+        background: var(--panel-dark);
+        color: var(--body);
+      }
+
+      .option-c .chat-main {
+        display: grid;
+        min-width: 0;
+        grid-template-rows: 58px 1fr auto;
+        background:
+          linear-gradient(rgba(27, 29, 33, 0.9), rgba(27, 29, 33, 0.92)),
+          url("../../../../src/assets/illustrations/narracat/fantasy-hero.webp") right 30px bottom 0 / 330px auto no-repeat;
+      }
+
+      .option-c .message.is-user .bubble {
+        background: #f4f4f5;
+        color: #18181b;
+      }
+
+      .pulse-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .pulse {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.04);
+        padding: 10px;
+      }
+
+      .pulse b {
+        display: block;
+        font-size: 18px;
+      }
+
+      .pulse span {
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .timeline {
+        display: grid;
+        gap: 10px;
+        margin-top: 4px;
+      }
+
+      .timeline-row {
+        display: grid;
+        grid-template-columns: 48px minmax(0, 1fr);
+        gap: 10px;
+        color: var(--body);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .timeline-row time {
+        color: var(--hint);
+      }
+
+      .bottom-switcher {
+        position: fixed;
+        right: 50%;
+        bottom: 20px;
+        z-index: 30;
+        display: flex;
+        gap: 8px;
+        transform: translateX(50%);
+        border: 1px solid rgba(24, 24, 27, 0.1);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: 0 18px 44px rgba(24, 24, 27, 0.12);
+        padding: 8px;
+        backdrop-filter: blur(18px);
+      }
+
+      .bottom-switcher button {
+        height: 34px;
+        border: 0;
+        border-radius: 9px;
+        background: transparent;
+        color: var(--body);
+        padding: 0 12px;
+        font-size: 12px;
+        font-weight: 620;
+      }
+
+      .bottom-switcher button.is-active {
+        background: #18181b;
+        color: #fff;
+      }
+
+      @media (max-width: 1180px) {
+        .workspace {
+          width: calc(100vw - 28px);
+          height: calc(100vh - 28px);
+          min-height: 680px;
+        }
+
+        .page {
+          padding: 14px;
+        }
+
+        .option-a .variant-shell,
+        .option-c .variant-shell {
+          grid-template-columns: 250px minmax(0, 1fr);
+        }
+
+        .option-a .context-panel,
+        .option-c .context-panel {
+          display: none;
+        }
+
+        .hero-portrait {
+          width: 220px;
+          height: 290px;
+          right: 22px;
+        }
+
+        .stage-dialogue {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="workspace" aria-label="唠个嗑三种原型">
+        <header class="topbar">
+          <div class="brandline">
+            <div class="mark">
+              <img src="../../../../src/assets/brand/narracat-mark.webp" alt="NarraCat" />
+            </div>
+            <div class="titleblock">
+              <h1>唠个嗑</h1>
+              <p>单本小说里的角色联系人 · 只读已完成剧情</p>
+            </div>
+          </div>
+          <div class="top-actions">
+            <span class="pill">最新完成：第 025 章</span>
+            <button class="ghost-button" type="button">刷新角色状态</button>
+          </div>
+        </header>
+
+        <section class="variant option-a is-active" data-variant="a" aria-label="方案 A 角色通讯器">
+          <div class="variant-shell">
+            <aside class="contact-list">
+              <div class="contact-header">
+                <h2>角色联系人</h2>
+                <span>4 位可聊</span>
+              </div>
+              <div class="search"><input aria-label="搜索角色" placeholder="搜索角色" /></div>
+              <div class="contacts">
+                <button class="contact is-selected" type="button" data-contact="沈牧渊">
+                  <span class="avatar"><img src="../../../../src/assets/illustrations/narracat/fantasy-hero.webp" alt="" /></span>
+                  <span><b class="contact-name">沈牧渊</b><span class="contact-status">刚从铁骑军府回来</span></span>
+                  <span class="contact-time">现在</span>
+                </button>
+                <button class="contact" type="button" data-contact="初尘">
+                  <span class="avatar"><img src="../../../../src/assets/illustrations/narracat/fantasy-reading.webp" alt="" /></span>
+                  <span><b class="contact-name">初尘</b><span class="contact-status">对吕镜川仍然戒备</span></span>
+                  <span class="contact-time">12:21</span>
+                </button>
+                <button class="contact" type="button" data-contact="沈伯">
+                  <span class="avatar"><img src="../../../../src/assets/illustrations/narracat/character-board.webp" alt="" /></span>
+                  <span><b class="contact-name">沈伯</b><span class="contact-status">守在落脚镇旧宅</span></span>
+                  <span class="contact-time">昨日</span>
+                </button>
+                <button class="contact" type="button" data-contact="陆百夫长">
+                  <span class="avatar"><img src="../../../../src/assets/illustrations/narracat/book-feedback.webp" alt="" /></span>
+                  <span><b class="contact-name">陆百夫长</b><span class="contact-status">首次登场，可聊但信息少</span></span>
+                  <span class="contact-time">第25章</span>
+                </button>
+              </div>
+            </aside>
+
+            <section class="chat-main">
+              <header class="chat-header">
+                <div class="chat-identity">
+                  <span class="avatar"><img src="../../../../src/assets/illustrations/narracat/fantasy-hero.webp" alt="" /></span>
+                  <div>
+                    <h2 data-active-name>沈牧渊</h2>
+                    <p><span class="status-dot"></span> 已装载角色设定，对话时补查 NovelMemory</p>
+                  </div>
+                </div>
+                <button class="ghost-button" type="button" data-drawer-toggle>资料</button>
+              </header>
+              <div class="thread">
+                <div class="message is-character">
+                  <span class="stamp">沈牧渊 · 第 025 章之后</span>
+                  <div class="bubble">老大，铁骑军府那帮人比我想的还快。你要问我怕不怕，我当然怕，但这次不能退。</div>
+                </div>
+                <div class="message is-user">
+                  <span class="stamp">你</span>
+                  <div class="bubble">你现在最担心谁？</div>
+                </div>
+                <div class="message is-character">
+                  <span class="stamp">沈牧渊</span>
+                  <div class="bubble">初尘。她嘴上不说，可她看吕镜川的眼神不对。那不是普通戒备，像是身子先替她记住了什么。</div>
+                </div>
+              </div>
+              <div class="prompt-chips" aria-label="开场话题">
+                <button type="button">你刚刚那场硬仗怎么样？</button>
+                <button type="button">你现在最担心谁？</button>
+                <button type="button">有什么想跟我说？</button>
+              </div>
+              <div class="composer">
+                <input aria-label="给角色发消息" placeholder="和他聊一句，不会写入小说正史" />
+                <button class="send" type="button">发送</button>
+              </div>
+            </section>
+
+            <aside class="context-panel">
+              <div class="drawer-titlebar">
+                <h3>角色资料</h3>
+                <button class="icon-button" type="button" data-drawer-close aria-label="关闭角色资料">×</button>
+              </div>
+              <div class="context-inner">
+                <section class="profile-card">
+                  <h3>角色设定稳定装载</h3>
+                  <ul class="meta-list">
+                    <li>语言指纹：短句、克制，压力越大越少解释。</li>
+                    <li>核心矛盾：想保住身边人，却不愿承认自己需要依靠。</li>
+                    <li>非理性倾向：涉及初尘安危时会抢先行动。</li>
+                  </ul>
+                </section>
+                <section class="memory-card">
+                  <h3>本轮补查</h3>
+                  <div class="tag-row">
+                    <span class="tag">novel_character_state</span>
+                    <span class="tag">novel_relationship</span>
+                    <span class="tag">chapter_summary</span>
+                  </div>
+                </section>
+                <section class="scene-card">
+                  <h3>边界</h3>
+                  <ul class="meta-list">
+                    <li>不知道第 026 章以后会发生什么。</li>
+                    <li>不会评价大纲、角色弧线或改稿策略。</li>
+                    <li>聊天记录只存在 App 层。</li>
+                  </ul>
+                </section>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="variant option-b" data-variant="b" aria-label="方案 B 视觉小说通讯">
+          <div class="variant-shell">
+            <aside class="contact-list">
+              <div class="contact-header">
+                <h2>来信</h2>
+                <span>剧情后近况</span>
+              </div>
+              <div class="contacts" style="padding-top: 14px">
+                <button class="contact is-selected" type="button" data-contact="初尘">
+                  <span class="avatar"><img src="../../../../src/assets/illustrations/narracat/fantasy-reading.webp" alt="" /></span>
+                  <span><b class="contact-name">初尘</b><span class="contact-status">有话没说完</span></span>
+                  <span class="contact-time">新</span>
+                </button>
+                <button class="contact" type="button" data-contact="沈牧渊">
+                  <span class="avatar"><img src="../../../../src/assets/illustrations/narracat/fantasy-hero.webp" alt="" /></span>
+                  <span><b class="contact-name">沈牧渊</b><span class="contact-status">硬撑着没喊疼</span></span>
+                  <span class="contact-time">第25章</span>
+                </button>
+                <button class="contact" type="button" data-contact="吕镜川">
+                  <span class="avatar"><img src="../../../../src/assets/illustrations/narracat/book-feedback.webp" alt="" /></span>
+                  <span><b class="contact-name">吕镜川</b><span class="contact-status">信息不足，谨慎对话</span></span>
+                  <span class="contact-time">薄</span>
+                </button>
+              </div>
+            </aside>
+            <section class="cinematic-stage">
+              <header class="stage-header">
+                <div>
+                  <h2 data-active-name>初尘</h2>
+                  <p>角色像从正文里走出来，但仍只知道已发生的事。</p>
+                </div>
+                <span class="knowledge-lock">知识锁定：第 025 章</span>
+              </header>
+              <div class="hero-portrait">
+                <img src="../../../../src/assets/illustrations/narracat/fantasy-reading.webp" alt="" />
+              </div>
+              <div class="stage-transcript">
+                <div class="stage-nameplate">
+                  <strong data-active-name>初尘</strong>
+                  <span>当前情绪：戒备，压着火</span>
+                </div>
+                <div class="stage-dialogue">
+                  <p>“你问我为什么躲着他？我说不清。只是他一靠近，我就觉得骨头里有风。老大，这种事你别急着替我解释，我也还没想明白。”</p>
+                  <div class="choice-stack">
+                    <button type="button">你愿意慢慢说，我听着。</button>
+                    <button type="button">你现在最怕他知道什么？</button>
+                    <button type="button">不聊他，聊聊你刚刚怎么活下来的。</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="variant option-c" data-variant="c" aria-label="方案 C 剧情通讯终端">
+          <div class="variant-shell">
+            <aside class="contact-list">
+              <div class="contact-header">
+                <h2>通讯链路</h2>
+                <span>已出场</span>
+              </div>
+              <div class="contacts" style="padding-top: 14px">
+                <button class="contact is-selected" type="button" data-contact="沈牧渊">
+                  <span class="avatar"><img src="../../../../src/assets/illustrations/narracat/fantasy-hero.webp" alt="" /></span>
+                  <span><b class="contact-name">沈牧渊</b><span class="contact-status">战后状态可查询</span></span>
+                  <span class="contact-time">在线</span>
+                </button>
+                <button class="contact" type="button" data-contact="沈伯">
+                  <span class="avatar"><img src="../../../../src/assets/illustrations/narracat/character-board.webp" alt="" /></span>
+                  <span><b class="contact-name">沈伯</b><span class="contact-status">关系数据稳定</span></span>
+                  <span class="contact-time">稳</span>
+                </button>
+                <button class="contact" type="button" data-contact="陆百夫长">
+                  <span class="avatar"><img src="../../../../src/assets/illustrations/narracat/book-feedback.webp" alt="" /></span>
+                  <span><b class="contact-name">陆百夫长</b><span class="contact-status">仅第25章薄记忆</span></span>
+                  <span class="contact-time">薄</span>
+                </button>
+              </div>
+            </aside>
+            <section class="chat-main">
+              <header class="chat-header">
+                <div class="chat-identity">
+                  <span class="avatar"><img src="../../../../src/assets/illustrations/narracat/fantasy-hero.webp" alt="" /></span>
+                  <div>
+                    <h2 data-active-name>沈牧渊</h2>
+                    <p>角色状态由已完成章节与记忆读工具实时补齐</p>
+                  </div>
+                </div>
+                <span class="pill">不接入全局通知</span>
+              </header>
+              <div class="thread">
+                <div class="message is-character">
+                  <span class="stamp">链路建立 · 第 025 章之后</span>
+                  <div class="bubble">老大，我活着回来了。别笑，我手还在抖。刚刚那一场硬仗，换以前我可能真撑不住。</div>
+                </div>
+                <div class="message is-user">
+                  <span class="stamp">你</span>
+                  <div class="bubble">你现在最想确认什么？</div>
+                </div>
+                <div class="message is-character">
+                  <span class="stamp">沈牧渊</span>
+                  <div class="bubble">确认初尘没事，确认沈伯没有把伤藏起来。剩下的，我可以晚点再怕。</div>
+                </div>
+              </div>
+              <div class="composer">
+                <input aria-label="发送通讯" placeholder="输入消息" />
+                <button class="send" type="button">发送</button>
+              </div>
+            </section>
+            <aside class="context-panel">
+              <div class="context-inner">
+                <section class="profile-card">
+                  <h3>当前信号</h3>
+                  <div class="pulse-grid">
+                    <div class="pulse"><b>25</b><span>知识章</span></div>
+                    <div class="pulse"><b>3</b><span>近章摘要</span></div>
+                    <div class="pulse"><b>低</b><span>污染风险</span></div>
+                  </div>
+                </section>
+                <section class="memory-card">
+                  <h3>最近经历</h3>
+                  <div class="timeline">
+                    <div class="timeline-row"><time>023</time><span>第一次意识到吕镜川的出现会改变初尘判断。</span></div>
+                    <div class="timeline-row"><time>024</time><span>落脚镇进入警戒，关系事实更新。</span></div>
+                    <div class="timeline-row"><time>025</time><span>铁骑军府十二骑先遣队抵达。</span></div>
+                  </div>
+                </section>
+                <section class="scene-card">
+                  <h3>候选来信文案</h3>
+                  <ul class="meta-list">
+                    <li>老大，我活着回来了。</li>
+                    <li>这回不算赢，只算没输。</li>
+                    <li>你别问我疼不疼，先问初尘去哪了。</li>
+                  </ul>
+                </section>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <nav class="bottom-switcher" aria-label="切换方案">
+      <button class="is-active" type="button" data-switch="a">A 通讯器</button>
+      <button type="button" data-switch="b">B 视觉小说</button>
+      <button type="button" data-switch="c">C 剧情终端</button>
+    </nav>
+
+    <script>
+      const variants = Array.from(document.querySelectorAll(".variant"));
+      const switchers = Array.from(document.querySelectorAll("[data-switch]"));
+      const drawer = document.querySelector(".option-a .context-panel");
+      const drawerToggle = document.querySelector("[data-drawer-toggle]");
+      const drawerClose = document.querySelector("[data-drawer-close]");
+      const params = new URLSearchParams(window.location.search);
+
+      function setVariant(id) {
+        const next = ["a", "b", "c"].includes(id) ? id : "a";
+        variants.forEach((variant) => {
+          variant.classList.toggle("is-active", variant.dataset.variant === next);
+        });
+        switchers.forEach((button) => {
+          button.classList.toggle("is-active", button.dataset.switch === next);
+        });
+        if (drawer) drawer.classList.remove("is-open");
+        params.set("option", next);
+        const url = `${window.location.pathname}?${params.toString()}`;
+        window.history.replaceState(null, "", url);
+      }
+
+      function selectContact(button) {
+        const scope = button.closest(".variant");
+        if (!scope) return;
+        scope.querySelectorAll(".contact").forEach((item) => item.classList.remove("is-selected"));
+        button.classList.add("is-selected");
+        scope.querySelectorAll("[data-active-name]").forEach((node) => {
+          node.textContent = button.dataset.contact || "角色";
+        });
+      }
+
+      switchers.forEach((button) => {
+        button.addEventListener("click", () => setVariant(button.dataset.switch));
+      });
+
+      document.querySelectorAll(".contact").forEach((button) => {
+        button.addEventListener("click", () => selectContact(button));
+      });
+
+      if (drawerToggle && drawer) {
+        drawerToggle.addEventListener("click", () => drawer.classList.toggle("is-open"));
+      }
+
+      if (drawerClose && drawer) {
+        drawerClose.addEventListener("click", () => drawer.classList.remove("is-open"));
+      }
+
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && drawer) drawer.classList.remove("is-open");
+      });
+
+      setVariant(params.get("option") || "a");
+    </script>
+  </body>
+</html>

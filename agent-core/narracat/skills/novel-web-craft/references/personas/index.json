@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "description": "官方说书人 persona 卡。builder 按叙述声音关键词机械选卡，命中卡的正文作为 persona 字段随 WritingContextPack 投递给写手，作为「讲法相近的说书人范本」供参考手感——这本书的声音以 style_directive 为准，卡不替换它。无命中则包内省略 persona。卡是能力层数据：模型无关、可导出、带署名。",
+  "personas": [
+    {
+      "id": "storyteller-witty",
+      "name": "说书人·诙谐",
+      "file": "storyteller-witty.md",
+      "author": "narracat-official",
+      "keywords": ["幽默", "诙谐", "调侃", "轻松", "贫", "吐槽", "损", "说书", "插科打诨", "轻快", "戏谑", "反讽"]
+    },
+    {
+      "id": "cold-blade",
+      "name": "冷峻·锋利",
+      "file": "cold-blade.md",
+      "author": "narracat-official",
+      "keywords": ["冷峻", "冷硬", "凌厉", "锋利", "悬疑", "肃杀", "孤独", "硬朗", "紧绷", "压迫"]
+    },
+    {
+      "id": "skin-close",
+      "name": "细腻·贴肤",
+      "file": "skin-close.md",
+      "author": "narracat-official",
+      "keywords": ["细腻", "温柔", "情感", "治愈", "甜", "暧昧", "心动", "言情", "暗恋", "拉扯", "贴肤", "温暖"]
+    },
+    {
+      "id": "blazing-youth",
+      "name": "少年·滚烫",
+      "file": "blazing-youth.md",
+      "author": "narracat-official",
+      "keywords": ["热血", "燃", "少年气", "滚烫", "意气", "不服", "逆袭", "豪迈", "张扬", "战意", "酣畅", "昂扬"]
+    },
+    {
+      "id": "deep-water",
+      "name": "深水·谋略",
+      "file": "deep-water.md",
+      "author": "narracat-official",
+      "keywords": ["权谋", "心机", "算计", "城府", "老辣", "沉稳", "隐忍", "庙堂", "宫斗", "博弈", "步步为营", "不动声色"]
+    },
+    {
+      "id": "street-fire",
+      "name": "市井·烟火",
+      "file": "street-fire.md",
+      "author": "narracat-official",
+      "keywords": ["市井", "烟火", "日常", "生活流", "种田", "家常", "朴实", "闲适", "慢热", "接地气", "絮叨", "琐碎"]
+    },
+    {
+      "id": "inner-snark",
+      "name": "脑内·毒舌",
+      "file": "inner-snark.md",
+      "author": "narracat-official",
+      "keywords": ["毒舌", "脑内", "碎嘴", "自嘲", "网感", "嘴炮", "中二", "腹诽", "内心戏", "快节奏", "二次元", "梗"]
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "central_dramatic_question": "林晚能否在宗门覆灭前找出内奸并保住青云剑脉?",
+  "protagonist_core_desire": "重铸断剑、洗清师父叛门的污名",
+  "protagonist_core_lack": "亲眼看着师父被逐出山门却不敢出声，从此不敢信任自己的判断",
+  "antagonistic_force": "执法堂首座暗中勾结魔宗 + 宗门内的门第倾轧 + 林晚对自身判断的怀疑",
+  "stakes_progression": "卷1失去同门信任→卷2失去剑脉传承资格→卷3面对师父叛门真相",
+  "storylines": [
+    {
+      "id": "SL-main",
+      "name": "内奸与剑脉",
+      "type": "main",
+      "priority": 1,
+      "entry_chapter": 1,
+      "planned_payoff_chapter": 60,
+      "is_through_line": true
+    },
+    {
+      "id": "SL-growth",
+      "name": "断剑重铸",
+      "type": "growth",
+      "priority": 2,
+      "entry_chapter": 2
+    },
+    {
+      "id": "SL-rival",
+      "name": "大师兄之争",
+      "type": "rivalry",
+      "priority": 3,
+      "entry_chapter": 4,
+      "status": "active"
+    }
+  ],
+  "foreshadowing_registry": [
+    {
+      "id": "F-TRAITOR",
+      "type": "major",
+      "description": "执法堂首座袖口的魔宗火纹刺青",
+      "planted_chapter": 3,
+      "target_reveal": "55",
+      "theme_link": "内奸身份直指中心戏剧问题"
+    },
+    {
+      "id": "F-SWORD-CORE",
+      "type": "medium",
+      "description": "断剑剑芯里封着师父留下的半枚传讯玉符",
+      "planted_chapter": 2,
+      "target_reveal": "24"
+    },
+    {
+      "id": "S-HERB",
+      "type": "small",
+      "description": "杂役峰药圃缺失的三株血参",
+      "planted_chapter": 1,
+      "target_reveal": "8"
+    }
+  ],
+  "volumes": [
+    {
+      "volume_no": 1,
+      "title": "杂役峰",
+      "dilemma_milestone": "choice",
+      "arc_list": [
+        {
+          "arc_id": "V01-A01",
+          "title": "药圃失窃案",
+          "chapter_start": 1,
+          "chapter_end": 12,
+          "core_question": "林晚能否在外门大比前自证没有偷血参?",
+          "irreversible_change": "林晚被逐出药圃、调入剑冢做杂役，第一次摸到断剑",
+          "next_arc_seed": "断剑在月圆夜发出剑鸣，引来执法堂的注意",
+          "antagonist_agent": "药圃管事",
+          "payoff_beats": ["face_slap", "level_up"]
+        },
+        {
+          "arc_id": "V01-A02",
+          "title": "剑冢夜鸣",
+          "chapter_start": 13,
+          "chapter_end": 24,
+          "core_question": "林晚能否在执法堂封冢前取出剑芯玉符?",
+          "irreversible_change": "玉符现世，师父『叛门案』有了第一个反证，大师兄与林晚决裂",
+          "next_arc_seed": "玉符只有一半，另一半在魔宗手里",
+          "payoff_beats": ["reveal", "counterattack"]
+        }
+      ]
+    }
+  ]
+}

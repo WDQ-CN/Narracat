@@ -1,0 +1,253 @@
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { canSetPrimaryModel, modelEntryKey, resolvePrimaryModel } from '@shared/lib/model-slots'
+import {
+  clearProviderApiKeyMetadata,
+  findUnsafeApiKeyCharacter,
+  hasConfiguredApiKey,
+  markProviderApiKeyUpdated,
+  markProviderVerified,
+  normalizeAppConfig,
+  PROVIDER_IDS,
+  type AppConfig,
+  type ProviderId,
+  UNSAFE_API_KEY_MESSAGE,
+  writeAppConfig,
+} from '../config.ts'
+import { deleteApiKey, getApiKey, hasApiKey, setApiKey } from '../secrets.ts'
+import { testProviderConnection, type ConnectionTestResult } from '../provider-test.ts'
+import { fetchProviderModels } from '../provider-models.ts'
+import type { ProviderModelListResult } from '@shared/types/ipc'
+import {
+  listResultNotifications,
+  markAllResultNotificationsRead,
+  markResultNotificationRead,
+  normalizeResultNotification,
+  upsertResultNotification,
+} from '../notifications.ts'
+import { evaluateReleaseGuard } from '../release-guard-runtime.ts'
+import type { ReleaseGateVerdict } from '../release-guard.ts'
+import { resolveNarraCatAgentCorePath } from '../engine/engine.ts'
+import { readNarraCatAgentCoreDiagnostics } from '../engine/agent-core-contract.ts'
+import { runEmbeddingHealthProbe } from '../engine/embedding-probe.ts'
+import {
+  navigationStatePath,
+  readStoredWorkLocation,
+  writeStoredWorkLocation,
+} from '../navigation-state.ts'
+import { parseStoredWorkLocation } from '@shared/lib/work-location-schema'
+import type { ResultNotificationList } from '@shared/types/notifications'
+import type { StoredWorkLocation } from '@shared/lib/work-location-schema'
+import { invalidateAgentSessions } from './agent.ts'
+// 跨域共用基础设施叶子模块（评审修复：消除 app.ts ↔ agent.ts 模块级循环 import）。
+import {
+  broadcastResultNotifications,
+  configPath,
+  readCurrentConfig,
+  resultNotificationsPath,
+  showNativeResultNotificationIfNeeded,
+} from './inputs.ts'
+
+export interface AppConfigPayload {
+  config: AppConfig
+  hasApiKey: boolean
+}
+
+export function workLocationPath(): string {
+  return navigationStatePath(app.getPath('userData'))
+}
+
+export function currentAgentCorePath(): string {
+  return resolveNarraCatAgentCorePath({
+    appRoot: app.getAppPath(),
+    resourcesPath: process.resourcesPath,
+  })
+}
+
+export function isProviderId(value: unknown): value is ProviderId {
+  return typeof value === 'string' && (PROVIDER_IDS as readonly string[]).includes(value)
+}
+
+export function configPayload(config: AppConfig): AppConfigPayload {
+  const primary = resolvePrimaryModel(config)
+  return {
+    config,
+    // 「已配置 Key」据 config 元数据判断，绝不在此读钥匙串——config:get 在启动（useIntroGate）
+    // 与进设置页时都会被调用，读钥匙串会触发 macOS 授权弹窗。真正读 Key 只在「测试连接」/ 跑创作时。
+    hasApiKey: primary ? hasConfiguredApiKey(config, primary.provider) : false,
+  }
+}
+
+/**
+ * 会话作废基准：providers 端点 + 双槽位 + Key 代际。池增删与验证状态变化本身不落进这份基准；
+ * 例外：轻量槽条目验证状态翻转会经另一套会话兼容性指纹（agent/runs/session-fingerprint.ts）
+ * 触发断线——resolveLightModel 是 fail-soft 解析（未验证回落主力、验证后启用轻量槽），指纹里
+ * 的 lightModel 字段跟着这次解析结果变化而变，由 divider 兜底，非 bug。
+ */
+function sessionConfigBasis(config: AppConfig): string {
+  return JSON.stringify({
+    providers: config.providers,
+    primaryModelKey: config.primaryModelKey,
+    lightModelKey: config.lightModelKey,
+    apiKeyMetadata: config.apiKeyMetadata,
+  })
+}
+
+export function registerAppIpcHandlers(): void {
+  // 测试端点：渲染端调用 window.electron.ping() 应该拿到 'pong-{timestamp}'
+  ipcMain.handle('ping', () => {
+    return `pong-${Date.now()}`
+  })
+
+  // 内测软过期 + 远程急刹车（#354）：渲染端启动时查一次，命中则显示拦截页。
+  ipcMain.handle('release-guard:check', async (): Promise<ReleaseGateVerdict> => {
+    return evaluateReleaseGuard()
+  })
+
+  ipcMain.handle('config:get', async (): Promise<AppConfigPayload> => {
+    return configPayload(await readCurrentConfig())
+  })
+
+  ipcMain.handle('config:save', async (_event, input: unknown): Promise<AppConfigPayload> => {
+    const previous = await readCurrentConfig()
+    const saved = await writeAppConfig(configPath(), normalizeAppConfig(input))
+    if (sessionConfigBasis(previous) !== sessionConfigBasis(saved)) {
+      await invalidateAgentSessions('model-service-changed')
+    }
+    return configPayload(saved)
+  })
+
+  ipcMain.handle('config:set-primary-model', async (_event, input: unknown): Promise<AppConfigPayload> => {
+    const key = typeof input === 'string' ? input.trim() : ''
+    const previous = await readCurrentConfig()
+    if (!key || !canSetPrimaryModel(previous, key)) {
+      throw new Error('该模型不可用或未验证，请先到设置页测试连接。')
+    }
+    const saved = await writeAppConfig(configPath(), { ...previous, primaryModelKey: key })
+    if (sessionConfigBasis(previous) !== sessionConfigBasis(saved)) {
+      await invalidateAgentSessions('model-service-changed')
+    }
+    return configPayload(saved)
+  })
+
+  ipcMain.handle('secret:set-api-key', async (_event, input: unknown): Promise<{ hasApiKey: boolean }> => {
+    if (!input || typeof input !== 'object') throw new Error('API Key 参数非法。')
+    const { provider, apiKey } = input as Record<string, unknown>
+    if (!isProviderId(provider) || typeof apiKey !== 'string') throw new Error('API Key 参数非法。')
+    await setApiKey(provider, apiKey)
+    const config = await readCurrentConfig()
+    await writeAppConfig(configPath(), markProviderApiKeyUpdated(config, provider, new Date().toISOString()))
+    await invalidateAgentSessions('api-key-changed')
+    // 刚写入成功，结果确定为 true——无需再读钥匙串（避免在写后又触发一次系统授权）。
+    return { hasApiKey: true }
+  })
+
+  ipcMain.handle('secret:delete-api-key', async (_event, provider: unknown): Promise<{ hasApiKey: boolean }> => {
+    if (!isProviderId(provider)) throw new Error('Provider 参数非法。')
+    await deleteApiKey(provider)
+    const config = await readCurrentConfig()
+    await writeAppConfig(configPath(), clearProviderApiKeyMetadata(config, provider))
+    await invalidateAgentSessions('api-key-changed')
+    // 刚删除成功，结果确定为 false——无需再读钥匙串。
+    return { hasApiKey: false }
+  })
+
+  ipcMain.handle('secret:has-api-key', async (_event, provider: unknown): Promise<{ hasApiKey: boolean }> => {
+    if (!isProviderId(provider)) throw new Error('Provider 参数非法。')
+    return { hasApiKey: await hasApiKey(provider) }
+  })
+
+  ipcMain.handle('provider:test-connection', async (_event, input: unknown): Promise<ConnectionTestResult> => {
+    if (!isProviderId(input)) return { ok: false, message: 'Provider 参数非法。' }
+    let config = await readCurrentConfig()
+    const entries = config.modelPool.filter((entry) => entry.provider === input)
+    if (entries.length === 0) return { ok: false, message: '请先启用至少一个模型再测试。' }
+    const apiKey = await getApiKey(input)
+    if (!apiKey) return { ok: false, message: '请先保存该服务商的 API Key。' }
+    if (findUnsafeApiKeyCharacter(apiKey)) return { ok: false, message: UNSAFE_API_KEY_MESSAGE }
+    if (!config.apiKeyMetadata[input]?.updatedAt) {
+      config = await writeAppConfig(configPath(), markProviderApiKeyUpdated(config, input, new Date().toISOString()))
+      await invalidateAgentSessions('api-key-changed')
+    }
+
+    const result = await testProviderConnection(config, apiKey, modelEntryKey(entries[0]!), {
+      appRoot: app.getAppPath(),
+      cwd: app.getPath('userData'),
+      resourcesPath: process.resourcesPath,
+    })
+    if (!result.ok) return result
+
+    const verifiedAt = new Date().toISOString()
+    await writeAppConfig(configPath(), markProviderVerified(config, input, verifiedAt))
+    return { ...result, verifiedAt }
+  })
+
+  ipcMain.handle('provider:list-models', async (_event, input: unknown): Promise<ProviderModelListResult> => {
+    if (!isProviderId(input)) return { ok: false, message: 'Provider 参数非法。' }
+    const config = await readCurrentConfig()
+    const apiKey = await getApiKey(input)
+    if (!apiKey) return { ok: false, message: '请先保存该服务商的 API Key。' }
+    if (findUnsafeApiKeyCharacter(apiKey)) return { ok: false, message: UNSAFE_API_KEY_MESSAGE }
+    return fetchProviderModels({ baseUrl: config.providers[input].baseUrl, apiKey })
+  })
+
+  ipcMain.handle('narracat:diagnostics', async () => {
+    return readNarraCatAgentCoreDiagnostics(currentAgentCorePath())
+  })
+
+  ipcMain.handle('embedding:health-probe', async () => {
+    return runEmbeddingHealthProbe({
+      appRoot: app.getAppPath(),
+      userDataPath: app.getPath('userData'),
+      resourcesPath: process.resourcesPath,
+    })
+  })
+
+  ipcMain.handle('notifications:list', async (): Promise<ResultNotificationList> => {
+    return listResultNotifications(resultNotificationsPath())
+  })
+
+  ipcMain.handle('notifications:upsert-result', async (_event, input: unknown): Promise<ResultNotificationList> => {
+    const notification = normalizeResultNotification(input)
+    if (!notification) throw new Error('通知参数非法。')
+
+    const payload = await upsertResultNotification(resultNotificationsPath(), notification)
+    broadcastResultNotifications(payload)
+    void showNativeResultNotificationIfNeeded(notification)
+    return payload
+  })
+
+  ipcMain.handle('notifications:mark-read', async (_event, id: unknown): Promise<ResultNotificationList> => {
+    if (typeof id !== 'string' || !id.trim()) throw new Error('通知 ID 参数非法。')
+    const payload = await markResultNotificationRead(resultNotificationsPath(), id)
+    broadcastResultNotifications(payload)
+    return payload
+  })
+
+  ipcMain.handle('notifications:mark-all-read', async (): Promise<ResultNotificationList> => {
+    const payload = await markAllResultNotificationsRead(resultNotificationsPath())
+    broadcastResultNotifications(payload)
+    return payload
+  })
+
+  ipcMain.handle('navigation:read-work-location', async (): Promise<StoredWorkLocation> => {
+    return readStoredWorkLocation(workLocationPath())
+  })
+
+  ipcMain.handle('navigation:write-work-location', async (_event, input: unknown): Promise<void> => {
+    const location = parseStoredWorkLocation(JSON.stringify(input) ?? null)
+    await writeStoredWorkLocation(workLocationPath(), location)
+  })
+
+  ipcMain.handle('dialog:select-directory', async (event): Promise<string | null> => {
+    const parent = BrowserWindow.fromWebContents(event.sender)
+    const options: Electron.OpenDialogOptions = {
+      properties: ['openDirectory', 'createDirectory'],
+      title: '选择小说根目录',
+      buttonLabel: '选择',
+    }
+    const result = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options)
+
+    if (result.canceled) return null
+    return result.filePaths[0] ?? null
+  })
+}

@@ -1,0 +1,144 @@
+/**
+ * Provider 装配测试（模型池化切片①）：AppConfig → Pi Model 描述的映射规则，主力/轻量槽驱动
+ * （shared/lib/model-slots）。[1m] 上下文按实际选中模型 id 判，不再是「三档任一带即全局 1M」。
+ */
+import { describe, expect, test } from 'bun:test'
+import type { AppConfig, ModelPoolEntry } from '@shared/types/config'
+import { DEFAULT_PROVIDER_SETTINGS, POOL_DEFAULT_FIELDS } from '@shared/types/config'
+import { createPiModel, resolvePiModelAlias } from './pi-model.ts'
+
+function makeConfig(overrides: Partial<AppConfig> = {}): AppConfig {
+  return {
+    ...POOL_DEFAULT_FIELDS,
+    apiKeyMetadata: {},
+    novelRootDir: '/tmp/novels',
+    recentNovelPaths: [],
+    systemNotificationsEnabled: true,
+    introVersion: 0,
+    ...overrides,
+  }
+}
+
+/** 已验证条目：verification 快照须与 apiKeyMetadata/providers[].baseUrl 匹配才算 verified。 */
+function verifiedEntry(provider: ModelPoolEntry['provider'], modelId: string): ModelPoolEntry {
+  return {
+    provider,
+    modelId,
+    verification: {
+      verifiedAt: '2026-08-02T00:00:00.000Z',
+      apiKeyUpdatedAt: '2026-08-01T00:00:00.000Z',
+      baseUrl: DEFAULT_PROVIDER_SETTINGS[provider].baseUrl,
+    },
+  }
+}
+
+describe('createPiModel', () => {
+  test('deepseek 默认配置 → anthropic-messages 自定义端点模型', () => {
+    const model = createPiModel(makeConfig())
+    expect(model.id).toBe('deepseek-v4-pro')
+    expect(model.provider).toBe('deepseek')
+    expect(model.api).toBe('anthropic-messages')
+    expect(model.baseUrl).toBe('https://api.deepseek.com/anthropic')
+    expect(model.contextWindow).toBe(200_000)
+    // 对齐 SDK 路径实际输出上限（CLI 默认 32000）：8192 会截断章节长输出（生产接线门前项①）
+    expect(model.maxTokens).toBe(32_000)
+  })
+
+  test('createPiModel 从主力槽解析 id/provider/baseUrl', () => {
+    const config = makeConfig({
+      modelPool: [{ provider: 'glm', modelId: 'glm-5.2', verification: null }],
+      primaryModelKey: 'glm/glm-5.2',
+      providers: { ...DEFAULT_PROVIDER_SETTINGS },
+    })
+    const model = createPiModel(config)
+    expect(model.id).toBe('glm-5.2')
+    expect(model.provider).toBe('glm')
+    expect(model.baseUrl).toBe('https://open.bigmodel.cn/api/anthropic')
+  })
+
+  test('explicitId 覆盖模型 id（子 agent 别名映射用），空串回落主力槽', () => {
+    expect(createPiModel(makeConfig(), 'model-x').id).toBe('model-x')
+    expect(createPiModel(makeConfig(), '').id).toBe('deepseek-v4-pro')
+  })
+
+  test('[1m] 判定按实际选中模型：主力不带 [1m] 就是 200k，即使池里有 [1m] 条目', () => {
+    const config = makeConfig({
+      modelPool: [
+        { provider: 'glm', modelId: 'glm-5.2', verification: null },
+        { provider: 'glm', modelId: 'glm-5.2[1m]', verification: null },
+      ],
+      primaryModelKey: 'glm/glm-5.2',
+    })
+    expect(createPiModel(config).contextWindow).toBe(200_000)
+    expect(createPiModel(config, 'glm-5.2[1m]').contextWindow).toBe(1_000_000)
+  })
+
+  test('baseUrl 为空（anthropic 官方）→ 回落官方端点', () => {
+    const config = makeConfig({
+      modelPool: [{ provider: 'anthropic', modelId: 'claude-opus-4-7', verification: null }],
+      primaryModelKey: 'anthropic/claude-opus-4-7',
+    })
+    expect(createPiModel(config).baseUrl).toBe('https://api.anthropic.com')
+  })
+
+  test('模型池为空（主力槽无法解析）→ 抛明确错误', () => {
+    expect(() => createPiModel(makeConfig({ modelPool: [], primaryModelKey: null }))).toThrow('未配置')
+  })
+})
+
+describe('resolvePiModelAlias', () => {
+  test('opus/sonnet 一律继承 run 模型（undefined）', () => {
+    const config = makeConfig()
+    expect(resolvePiModelAlias(config, 'opus')).toBeUndefined()
+    expect(resolvePiModelAlias(config, 'sonnet')).toBeUndefined()
+  })
+
+  test('非法/缺省别名一律 undefined，不做透传旁路', () => {
+    const config = makeConfig()
+    expect(resolvePiModelAlias(config, 'inherit')).toBeUndefined()
+    expect(resolvePiModelAlias(config, 'deepseek-v4-pro')).toBeUndefined()
+    expect(resolvePiModelAlias(config, undefined)).toBeUndefined()
+  })
+
+  test('haiku：同 provider 已验证轻量槽 → 返回轻量 modelId', () => {
+    const config = makeConfig({
+      modelPool: [
+        { provider: 'deepseek', modelId: 'deepseek-v4-pro', verification: null },
+        verifiedEntry('deepseek', 'deepseek-lite'),
+      ],
+      primaryModelKey: 'deepseek/deepseek-v4-pro',
+      lightModelKey: 'deepseek/deepseek-lite',
+      apiKeyMetadata: { deepseek: { updatedAt: '2026-08-01T00:00:00.000Z' } },
+    })
+    expect(resolvePiModelAlias(config, 'haiku')).toBe('deepseek-lite')
+  })
+
+  test('haiku：跨 provider 已验证轻量槽 → undefined（子会话共用 run 的 provider/apiKey，跨家不可用）', () => {
+    const config = makeConfig({
+      modelPool: [
+        { provider: 'deepseek', modelId: 'deepseek-v4-pro', verification: null },
+        verifiedEntry('glm', 'glm-4.5-air'),
+      ],
+      primaryModelKey: 'deepseek/deepseek-v4-pro',
+      lightModelKey: 'glm/glm-4.5-air',
+      apiKeyMetadata: {
+        deepseek: { updatedAt: '2026-08-01T00:00:00.000Z' },
+        glm: { updatedAt: '2026-08-01T00:00:00.000Z' },
+      },
+    })
+    expect(resolvePiModelAlias(config, 'haiku')).toBeUndefined()
+  })
+
+  test('haiku：轻量槽未验证 → undefined（resolveLightModel 已回落主力，与主力同值时收敛为 undefined）', () => {
+    const config = makeConfig({
+      modelPool: [
+        { provider: 'deepseek', modelId: 'deepseek-v4-pro', verification: null },
+        { provider: 'deepseek', modelId: 'deepseek-lite', verification: null },
+      ],
+      primaryModelKey: 'deepseek/deepseek-v4-pro',
+      lightModelKey: 'deepseek/deepseek-lite',
+      apiKeyMetadata: { deepseek: { updatedAt: '2026-08-01T00:00:00.000Z' } },
+    })
+    expect(resolvePiModelAlias(config, 'haiku')).toBeUndefined()
+  })
+})

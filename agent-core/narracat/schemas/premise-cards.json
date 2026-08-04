@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PremiseCards",
+  "version": "1.0.0",
+  "description": "立项卡数据契约。九张创作地基卡，novel_submit_premise 的 payload。每卡 fields 为带确定度的条目；第 9「留白声明」由各条 certainty 自动汇总、不入本契约（不单独提交）。premise.md 由提交工具从本契约机械渲染为只读视图（含叙述声音英文 key 节，供 master-outline 腔调渲染消费），不再被任何环节当源头编辑。叙述声音卡的 field.key 用英文（archetype/tone/...）以兼容腔调节解析。",
+  "type": "object",
+  "required": ["cards"],
+  "additionalProperties": false,
+  "properties": {
+    "cards": {
+      "type": "array",
+      "minItems": 1,
+      "description": "立项卡数组。完整立项含八张实体卡。novel_submit_premise 默认整体覆盖入库——提交的 cards 即完整集合，未提交的卡会被清除；只改部分卡时必须传 merge_cards=true，工具按 card key 合并、保留未提交卡（不会丢卡）。同一 card 不重复（工具代码核验）",
+      "items": { "$ref": "#/$defs/premise_card" }
+    }
+  },
+  "$defs": {
+    "premise_card": {
+      "type": "object",
+      "required": ["card", "fields"],
+      "additionalProperties": false,
+      "properties": {
+        "card": {
+          "type": "string",
+          "enum": [
+            "genre_contract",
+            "core_hook",
+            "golden_finger",
+            "protagonist_desire",
+            "antagonistic_force",
+            "central_dramatic_question",
+            "world_rules",
+            "narrator_voice"
+          ],
+          "description": "卡标识（八张实体卡）：genre_contract=题材读者契约（细分题材/读者期待/超预期点/情绪基调）/ core_hook=核心钩子 / golden_finger=金手指与爽点引擎（能力/限制/成长/反馈回路/不消灭冲突）/ protagonist_desire=主角欲望与代价（表层想要/深层需要/代价/底线）/ antagonistic_force=对抗力量 / central_dramatic_question=中心戏剧问题 / world_rules=世界规则可冲突性（每条 field 的 note 记「让谁和谁打起来」）/ narrator_voice=叙述声音（field.key 用英文 archetype/tone/pacing/ornamentation/digression/address/style_keywords/reference_inspiration/reference_example）。第 9 留白声明由确定度自动汇总、不提交"
+        },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "description": "卡内条目，每条一个 prose 值 + 确定度。单段卡（core_hook/antagonistic_force/central_dramatic_question）通常一条；narrator_voice 用英文 key",
+          "items": { "$ref": "#/$defs/premise_field" }
+        }
+      }
+    },
+    "premise_field": {
+      "type": "object",
+      "required": ["key", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "条目键：结构化子字段名或语义标签（如 subgenre / surface_want）；world_rules 卡用规则短名；narrator_voice 卡用英文 key（archetype/tone/.../reference_example）以兼容腔调节渲染"
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "description": "条目 prose 值。world_rules 卡此处写规则本身；narrator_voice 的 reference_example 此处写 source_excerpt"
+        },
+        "certainty": {
+          "type": "string",
+          "enum": ["canon", "tentative", "open"],
+          "description": "确定度：canon=已定不可违背（默认，可省略即视为 canon）/ tentative=暂定，可被后续创作修正 / open=有意留白、当前未定"
+        },
+        "note": {
+          "type": "string",
+          "description": "可选副字段：world_rules 卡承载该规则「让谁和谁打起来」的冲突描述；narrator_voice 的 reference_example 承载 mechanism_note 机制注解"
+        }
+      }
+    },
+    "narrator_address": {
+      "description": "叙述人称受控值域 SSOT —— 叙述声音卡 address 字段的 value 取值。enum 英文 snake_case，中文展示归渲染层（引擎 narratorAddressPhrase / App schema-field-labels）。校验在 novel_submit_premise：narrator_voice 卡必含 address 且 value 属本集（certainty=open 有意留白除外）。first_person=第一人称 / third_limited=第三人称限知 / third_omniscient=第三人称全知 / multi_pov=多视角切换",
+      "enum": ["first_person", "third_limited", "third_omniscient", "multi_pov"]
+    }
+  }
+}

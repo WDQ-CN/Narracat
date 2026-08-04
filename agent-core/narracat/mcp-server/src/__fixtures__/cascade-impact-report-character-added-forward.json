@@ -1,0 +1,14 @@
+{
+  "change_kind": "character_added",
+  "added_character": "云裳",
+  "insertion_point": "forward",
+  "proposed_chapter": 42,
+  "has_impact": false,
+  "key_changes": [
+    {
+      "category": "character_added",
+      "description": "新增配角云裳，计划第 42 章首次登场，此前章节不涉及"
+    }
+  ],
+  "affected_chapters": []
+}

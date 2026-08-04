@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# OS
+.DS_Store
+
+# Serena
+.serena/
+
+# Worktrees
+.worktrees/
+
+# Claude Code 运行时产物（ScheduleWakeup 调度锁等，非项目资产）
+.claude/
+
+# Novel project runtime (user's novel project, not plugin source)
+.narracat/state.log
+
+# 用户侧小说项目目录，不应出现在 plugin 仓库中
+bible/
+manuscript/
+outline/
+reviews/
+notes/
+.narracat/
+
+# NarraCat-app keeps the built MCP server entrypoint as an Agent Core runtime adapter artifact.
+!mcp-server/dist/
+!mcp-server/dist/**

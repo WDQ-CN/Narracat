@@ -1,0 +1,366 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OutlineStructure",
+  "version": "5.0.0",
+  "description": "大纲三层结构契约。顶层对象是 novel_submit_outline 的 payload（书级引擎字段 + storylines + 伏笔注册表 + 卷级与 arc 层）；$defs/chapter_outline_batch 是 novel_submit_chapter_outline 的 payload（章级细纲批量数组）。两个提交工具入口做 ajv 校验，并按 novel_get_structure_budget 的预算表核验数量下限。叙述声音归设定层（bible），不在本契约内。下游影响：chapter_outline 由离散字段（value_shift/emotional_stakes/dramatic_focus/scenes/ending_note）改为 beat 骨架（positioning + beats[] + must_deliver[] + 章级 characters[]），additionalProperties:false 拒绝遗留字段；影响 novel_submit_chapter_outline 校验、章纲 md 渲染（renderChapterOutlineMarkdown 按形状分支，旧 ch-NNN.json 走 renderLegacy 零迁移）、parseRenderedOutline 检索种子、outline-architect 阶段二产出契约；4 命脉字段（chapter/payoff_beat/storyline_focus/foreshadowing_touch）离散顶层不变，DB 写入不受影响。issue #429（M2R.3）S1：新增可选字段 arc_list[].antagonist_agent（string，本 arc 具体施压者，无 WARN，日常流 arc 可留空），纯 additive、零 required 变更、旧数据零迁移，落 arc_meta 新列（SCHEMA_VERSION 15→16，幂等加列迁移）+ renderArcLines 渲染进 vol-outline.md + WCP 新增可选 current_antagonist_agent。S2：新增可选字段 $defs/chapter_outline.payoff_intensity（enum small/medium/large，与 payoff_beat 同款可空语义），渲染进章纲 md「本章爽点」行，novel_submit_chapter_outline 新增一条配对完整性 WARN（有 payoff_beat 无 intensity），不做强度倒序检查（见 checkPayoffIntensityConsistency 代码注释）；反向情形（只有 intensity 没有 beat）是语义矛盾的机械事实，由 chapter_outline 的 dependentRequired 在 ajv 入口 ERROR 拒绝（走 errors[]+hint 自修正回路），不靠渲染层静默吞掉。A4×D2 片3：新增可选字段 $defs/chapter_outline.state_changes（本章计划状态变更，条目={character(CharacterReference)/dimension(词表 key)/operation(set|add|remove 可省)/value/reason?}，maxItems 8，空数组合法），纯 additive、零 required 变更、旧数据零迁移；下游=novel_submit_chapter_outline 语义校验（维度∈词表/enum 值域/operation×cardinality）+ 镜像 planned_state_changes 计划表（SCHEMA_VERSION 17→18 新表，重提交按章镜像最新提交集、只清 planned 保历史账）+ WCP 新增可选 planned_state_changes 前置区块 + /write 收尾 novel_check_state_delivery 兑现比对 + 章纲 md 渲染「本章状态变更」行。",
+  "type": "object",
+  "required": [
+    "central_dramatic_question",
+    "protagonist_core_desire",
+    "protagonist_core_lack",
+    "antagonistic_force",
+    "stakes_progression",
+    "storylines",
+    "foreshadowing_registry",
+    "volumes"
+  ],
+  "properties": {
+    "central_dramatic_question": {
+      "type": "string",
+      "description": "贯穿全书的 yes/no 大问题，读者追到最后一章的那个答案。如「他能在三十岁前找到杀父凶手吗」"
+    },
+    "protagonist_core_desire": {
+      "type": "string",
+      "description": "主角想要什么（表层欲望）。如「洗清父亲冤名」"
+    },
+    "protagonist_core_lack": {
+      "type": "string",
+      "description": "主角的核心缺失/伤口（深层需要，推动改变的内驱力）。如「童年目睹父亲被诬陷，不相信任何权威」"
+    },
+    "antagonistic_force": {
+      "type": "string",
+      "description": "对抗力量总览。如「杀父仇人是朝廷重臣 + 整个司法体系 + 主角自己的怀疑」"
+    },
+    "stakes_progression": {
+      "type": "string",
+      "description": "赌注递增曲线，按卷描述主角可能失去什么。如「卷1失去身份→卷2失去盟友→卷3失去信念→卷4面对真相」"
+    },
+    "storylines": {
+      "type": "array",
+      "minItems": 1,
+      "description": "全书故事线注册表。数量按预算表 storyline_budget 核验；章级细纲的 storyline_focus 引用本表 id",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "type", "priority", "entry_chapter"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "故事线唯一标识，如 \"SL-revenge\""
+          },
+          "name": {
+            "type": "string",
+            "description": "故事线名称"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["main", "growth", "romance", "faction", "mystery", "rivalry", "world", "other"],
+            "description": "main=主线 / growth=成长线 / romance=感情线 / faction=势力线 / mystery=悬疑线 / rivalry=宿敌线 / world=世界线 / other=其他"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "优先级，1 最高"
+          },
+          "entry_chapter": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "故事线入场章号"
+          },
+          "planned_payoff_chapter": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "计划收线章号；未定可省略"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "dormant", "resolved"],
+            "description": "故事线状态，缺省 active"
+          },
+          "is_through_line": {
+            "type": "boolean",
+            "description": "是否全书贯穿故事线；贯穿线在 WCP 常驻层中永不随卷滚动丢弃。至少 1 条故事线应标记为 true（通常是主线或宿敌线）。缺省 false"
+          }
+        }
+      }
+    },
+    "foreshadowing_registry": {
+      "type": "array",
+      "description": "全书伏笔注册表。数量按预算表核验（major 约等于卷数，medium 约等于 arc 数，small 约等于总章数/10）。条目字段与 schemas/foreshadowing-system.json 的 registry 条目一致",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "description", "planted_chapter", "target_reveal"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_-]*$",
+            "description": "伏笔唯一标识，大写字母开头，如 \"F01\" / \"F-CONSPIRACY-01\""
+          },
+          "type": {
+            "type": "string",
+            "enum": ["small", "medium", "major"],
+            "description": "small=arc 内兑现 / medium=本卷内兑现 / major=跨卷兑现"
+          },
+          "description": {
+            "type": "string",
+            "description": "伏笔内容描述"
+          },
+          "planted_chapter": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "计划埋设章号"
+          },
+          "target_reveal": {
+            "type": "string",
+            "pattern": "^([1-9][0-9]*|vol-[0-9]{2})$",
+            "description": "计划兑现锚点：章号（如 \"120\"）或卷级粗锚点（如 \"vol-08\"），写作过程中可调整"
+          },
+          "theme_link": {
+            "type": "string",
+            "description": "与中心戏剧问题的联系"
+          }
+        }
+      }
+    },
+    "volumes": {
+      "type": "array",
+      "minItems": 1,
+      "description": "卷级大纲。卷的章号范围由 arc_list 的 chapter_start/chapter_end 机械推导；超长篇可先只提交第一卷，后续卷按最早缺失区间增量提交",
+      "items": {
+        "type": "object",
+        "required": ["volume_no", "title", "arc_list"],
+        "properties": {
+          "volume_no": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "卷号"
+          },
+          "title": {
+            "type": "string",
+            "description": "卷标题"
+          },
+          "dilemma_milestone": {
+            "type": "string",
+            "enum": ["ability", "choice", "value", "identity", "existential"],
+            "description": "本卷达到的困境层级里程碑。提交工具按全书里程碑校验：约 50% 进度的卷达 value，末段卷达 identity 或 existential"
+          },
+          "arc_list": {
+            "type": "array",
+            "minItems": 1,
+            "description": "本卷的 arc 列表（网文副本粒度，跨度按预算表 arc_span）",
+            "items": {
+              "type": "object",
+              "required": [
+                "arc_id",
+                "title",
+                "chapter_start",
+                "chapter_end",
+                "core_question",
+                "irreversible_change",
+                "next_arc_seed",
+                "payoff_beats"
+              ],
+              "properties": {
+                "arc_id": {
+                  "type": "string",
+                  "description": "arc 唯一标识，如 \"V01-A02\""
+                },
+                "title": {
+                  "type": "string",
+                  "description": "arc 标题"
+                },
+                "chapter_start": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "arc 起始章号"
+                },
+                "chapter_end": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "arc 结束章号，必须 ≥ chapter_start"
+                },
+                "core_question": {
+                  "type": "string",
+                  "description": "本 arc 可结算的 yes/no 核心问题"
+                },
+                "irreversible_change": {
+                  "type": "string",
+                  "description": "arc 结束时世界的不可逆改变（关系/资源/位置/风险至少一项）"
+                },
+                "next_arc_seed": {
+                  "type": "string",
+                  "description": "引出下一 arc 的种子，如「解决问题 A 但引发更大问题 B」"
+                },
+                "antagonist_agent": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "可空。本 arc 具体是谁/什么在向主角施压——要求可指认的具体主体（人物名、生物、组织化身的具体代表，或主角自身执念），不接受「规则」「命运」「系统」这类抽象总览（那是书级 antagonistic_force 该说的话）。日常流/无对抗 arc 可留空，不做提交门 WARN"
+                },
+                "payoff_beats": {
+                  "type": "array",
+                  "description": "本 arc 编排的爽点类型。数量按预算表核验（每 arc ≥1，最小篇幅档可为空）",
+                  "items": {
+                    "type": "string",
+                    "enum": ["face_slap", "level_up", "windfall", "fame", "reveal", "reunion", "counterattack", "sweet"]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "character_reference": {
+      "type": "object",
+      "required": ["character_uid", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "character_uid": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "description": "角色 canonical UID（lowercase UUID v4），取自角色档案 character_identity；不自行编造"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "角色显示名，供人读与模型理解"
+        }
+      }
+    },
+    "chapter_outline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "chapter",
+        "title",
+        "positioning",
+        "beats",
+        "storyline_focus",
+        "characters",
+        "pov_character"
+      ],
+      "dependentRequired": {
+        "payoff_intensity": ["payoff_beat"]
+      },
+      "properties": {
+        "chapter": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "章节号"
+        },
+        "title": {
+          "type": "string",
+          "description": "章标题"
+        },
+        "positioning": {
+          "type": "string",
+          "description": "本章定位：这章在 arc/卷里的位置与戏剧功能，一两句。下游：渲染进章纲 md「## 本章定位」，喂 chapter-writer；parseRenderedOutline 取作 dramatic_focus 检索种子"
+        },
+        "beats": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "type": "string" },
+          "description": "有序场景骨架，每条一个推进节拍；行内可带「入场压力/升级/翻转/不可逆选择/收尾」类标签（自由文本非枚举）。下游：渲染进「## 场景骨架」编号列表，是写手主输入；parseRenderedOutline 取作压力点语义检索种子"
+        },
+        "must_deliver": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "必须落地：本章必须兑现的爽点/伏笔硬交付项，可空。下游：渲染进「## 必须落地」"
+        },
+        "payoff_beat": {
+          "type": "string",
+          "enum": ["face_slap", "level_up", "windfall", "fame", "reveal", "reunion", "counterattack", "sweet"],
+          "description": "可空。本章兑现的爽点类型（枚举与 arc 级 payoff_beats 同一套）。由 outline-architect 在阶段二把 arc 的 payoff_beats 落到具体章时标记；无爽点的章留空。下游：novel_submit_chapter_outline 渲染进章纲 md 的「本章爽点」一行，经 WritingContextPack 透传给 chapter-writer，novel-web-craft 据此明确本章该兑现哪种爽（而非只能从 dramatic_focus 自由文本猜）"
+        },
+        "payoff_intensity": {
+          "type": "string",
+          "enum": ["small", "medium", "large"],
+          "description": "可空，与 payoff_beat 同款可空语义（无爽点的章两个字段都留空）。本章爽点兑现的强度：small=小确幸/日常小胜、medium=阶段性翻身/关系推进、large=全书级大爆点。落 payoff-cadence 包已有的强度谱（small 约 38%/medium 约 17%/large 约 2.5%，59 部头部网文实测）。强度依附于爽点存在：只填 payoff_intensity 不填 payoff_beat 是语义矛盾，由本对象的 dependentRequired 在 ajv 入口拒绝（ERROR）。下游：渲染进章纲 md「本章爽点」行末尾（如「打脸（face_slap）· 强度: medium」）；novel_submit_chapter_outline 另做配对完整性 WARN（有 payoff_beat 无 intensity，正向不完整可用不阻断），不做强度倒序/递增校验——「大爆点后穿插小兑现维持在场感」是 payoff-cadence 包本身鼓励的正常写法，机械倒序检查会误伤"
+        },
+        "end_hook": {
+          "type": "string",
+          "enum": ["suspense", "danger", "emotional", "none"],
+          "description": "可空但 prompt 要求必填。章末最后一幕的未完成态类型：suspense=悬念钩（新信息/疑问/未完成事件截断）、danger=危机钩（威胁迫近或处境恶化收尾）、emotional=情绪钩（停在情绪高点或关系张力）、none=显式无钩（刻意缓冲收束）。口径与剧情网格 grid-v2.1 一致。下游：checkHookCadence 连续无钩告警、渲染进章纲 md「章末钩」行"
+        },
+        "storyline_focus": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "description": "本章聚焦的故事线 id（引用书级 storylines）。提交时机械写入 chapter_storyline_focus"
+        },
+        "characters": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/character_reference" },
+          "description": "本章出场角色（章级扁平 CharacterReference 列表，替代旧 scenes[].characters）。下游：渲染「- 出场角色」一行，parseRenderedOutline 取作角色卡加载 + 语义检索种子"
+        },
+        "pov_character": {
+          "$ref": "#/$defs/character_reference",
+          "description": "本章视角人物（单个 CharacterReference）。叙事跟随的主视角角色；多视角章取主导视角"
+        },
+        "foreshadowing_touch": {
+          "type": "array",
+          "description": "本章触及的伏笔动作",
+          "items": {
+            "type": "object",
+            "required": ["id", "action"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "引用书级 foreshadowing_registry 的 id"
+              },
+              "action": {
+                "type": "string",
+                "enum": ["plant", "develop", "reveal"]
+              }
+            }
+          }
+        },
+        "state_changes": {
+          "type": "array",
+          "maxItems": 8,
+          "description": "本章计划的角色状态变更（可选，空数组合法不设 KPI）。维度取自本书状态词表；提交时镜像进计划表，写作上下文包前置给写手，写作收尾兑现比对。无词表的书不得携带本字段",
+          "items": {
+            "type": "object",
+            "required": ["character", "dimension", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "$ref": "#/$defs/character_reference",
+                "description": "变更主体（uid+显示名，uid 取自角色档案，不自行编造）"
+              },
+              "dimension": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{1,31}$",
+                "description": "状态词表维度 key（bible/state-vocabulary.json）"
+              },
+              "operation": {
+                "type": "string",
+                "enum": ["set", "add", "remove"],
+                "description": "one 维度恒 set（可省略）；many 维度缺省 add"
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60,
+                "description": "目标值；enum 维度须在词表值域内"
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 100,
+                "description": "一句话缘由（可选，进计划表供写手与作者理解）"
+              }
+            }
+          }
+        }
+      }
+    },
+    "chapter_outline_batch": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/chapter_outline" },
+      "description": "novel_submit_chapter_outline 的 payload：章级细纲批量数组，单批覆盖不超过 4 个 arc 的章（工具代码核验）"
+    }
+  }
+}

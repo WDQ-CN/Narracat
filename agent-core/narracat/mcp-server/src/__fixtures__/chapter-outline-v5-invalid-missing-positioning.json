@@ -1,0 +1,16 @@
+[
+  {
+    "chapter": 3,
+    "title": "夜巡的火纹",
+    "beats": [
+      "入场压力：林晚夜巡撞见执法堂首座独自入冢。",
+      "升级：他躲进碑影里屏息，怕被发现。",
+      "翻转钩子：首座抬手整袖，火纹刺青在灯下一闪。"
+    ],
+    "storyline_focus": ["SL-main"],
+    "characters": [
+      { "character_uid": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "name": "林晚" }
+    ],
+    "pov_character": { "character_uid": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "name": "林晚" }
+  }
+]

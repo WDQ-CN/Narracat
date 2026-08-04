@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CascadeImpactReport",
+  "description": "一次变更后的级联影响分析报告。两类变更共用本契约：change_kind=chapter_rewrite（章节重写，/narracat:rewrite 产出，锚点 rewritten_chapter）与 change_kind=character_added（写作期新增角色，锚点 added_character + insertion_point）。主会话据此判定后续修复路径。本契约用于一次变更的影响快照，不持久化到 NovelMemory。",
+  "version": "1.1.0",
+  "type": "object",
+  "required": ["has_impact", "affected_chapters"],
+  "properties": {
+    "change_kind": {
+      "type": "string",
+      "enum": ["chapter_rewrite", "character_added"],
+      "description": "变更类别：chapter_rewrite（重写既有章节，默认；须带 rewritten_chapter）/ character_added（写作期新增角色，须带 added_character 与 insertion_point）。省略按 chapter_rewrite 处理（向后兼容）。"
+    },
+    "rewritten_chapter": {
+      "type": "integer",
+      "description": "change_kind=chapter_rewrite 时必填：被重写的章节号，integer ≥ 1。后续 affected_chapters 中的 chapter 值必须 > 本字段。character_added 时不适用、省略。"
+    },
+    "added_character": {
+      "type": "string",
+      "description": "change_kind=character_added 时必填：新增角色的显示名（与角色档案 character_identity 的 name 一致）。"
+    },
+    "insertion_point": {
+      "type": "string",
+      "enum": ["forward", "backward", "retroactive"],
+      "description": "change_kind=character_added 时必填：按时间插入点路由级联深度——forward（纯前向：仅建档，角色尚未也不会回溯进已写章，无级联）/ backward（向后出场：后续大纲与写作纳入，前向无回溯）/ retroactive（追溯：角色其实早该在已写章出现，需回填既有章 facts/关系，必要时标注 continuity/rewrite）。"
+    },
+    "proposed_chapter": {
+      "type": "integer",
+      "description": "change_kind=character_added 时可选：角色计划首次出场/被提及的章号，integer ≥ 1。供主会话定位 backward 起点。"
+    },
+    "has_impact": {
+      "type": "boolean",
+      "description": "整体影响标志：是否对任何已完成章节产生级联影响。true 时 key_changes / affected_chapters 应有非空内容；false 时表示变更不破坏既有连续性，两数组可为空（chapter_rewrite 无破坏 / character_added 纯前向）。"
+    },
+    "key_changes": {
+      "type": "array",
+      "description": "新旧版本的关键差异清单。每项描述变更引入的一处具体变化（角色状态 / 事件 / 关系 / 伏笔 / 设定 / 角色新增），供主会话向用户解释影响范围、供下游章节自查时锚定差异点。",
+      "items": {
+        "type": "object",
+        "description": "单条 key_change 差异记录，必须含 category 与 description，old_value/new_value 视情况提供。",
+        "required": ["category", "description"],
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "character_state",
+              "event",
+              "relationship",
+              "foreshadowing",
+              "setting",
+              "character_added"
+            ],
+            "description": "差异类别：character_state（角色状态/属性/能力变化）/ event（具体事件本身被改写）/ relationship（角色间关系变化）/ foreshadowing（伏笔的种植或揭示被改动）/ setting（世界观/规则/地点设定变化）/ character_added（新增一个此前不存在的角色，change_kind=character_added 时用）"
+          },
+          "description": {
+            "type": "string",
+            "description": "差异描述（一句话），说明发生了什么变化，便于人类阅读和下游章节定位。"
+          },
+          "old_value": {
+            "type": "string",
+            "description": "旧版对应内容（可选）。建议提供以便主会话呈现 diff；如旧版无此项（纯新增，如 character_added）可省略。"
+          },
+          "new_value": {
+            "type": "string",
+            "description": "新版对应内容（可选）。建议提供以便主会话呈现 diff；如纯删除可省略。"
+          }
+        }
+      }
+    },
+    "affected_chapters": {
+      "type": "array",
+      "description": "受影响的已完成章节列表。每项含影响级别、具体问题与修复建议。空数组表示无章节受影响（has_impact 通常为 false）。chapter_rewrite 时每项 chapter 必须 > rewritten_chapter；character_added retroactive 时为需回填/检查的已写章（可早于 proposed_chapter）。",
+      "items": {
+        "type": "object",
+        "description": "单条受影响章节记录：必须含 chapter / impact_level / issues 三字段，suggested_fix 可选但 critical 级别强烈建议。",
+        "required": ["chapter", "impact_level", "issues"],
+        "properties": {
+          "chapter": {
+            "type": "integer",
+            "description": "受影响章节号，integer ≥ 1。chapter_rewrite 时必须 > rewritten_chapter（同章和前序章不在级联范围）；character_added retroactive 时为该角色其实早该出现、需回填或检查的已写章。"
+          },
+          "impact_level": {
+            "type": "string",
+            "enum": ["critical", "moderate", "minor"],
+            "description": "影响级别：critical（事实性冲突，必须修复，否则后续叙事不成立）/ moderate（设定/关系不一致，建议尽快修复）/ minor（措辞/细节微调，可暂缓）。主会话据此向用户分级展示。"
+          },
+          "issues": {
+            "type": "array",
+            "description": "具体问题清单，每条一句中文描述受影响章节中哪段/哪个事实/哪条对白与新版内容产生冲突，或该角色为何早该在本章出现。至少 1 条；空数组应视为 has_impact=false 范围内，不应进入本数组。",
+            "items": {
+              "type": "string",
+              "description": "单条问题描述（含定位线索如『第 N 段』『XX 角色台词』）"
+            }
+          },
+          "suggested_fix": {
+            "type": "string",
+            "description": "针对本章问题的修复建议（可选，但 impact_level=critical 时强烈建议提供）。短描述用户/agent 应如何对齐（重写本章、回填 facts/关系、或 continuity 检查）。"
+          }
+        }
+      }
+    }
+  }
+}
