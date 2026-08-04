@@ -21,7 +21,7 @@ NarraCat-app 内部维护的创作引擎（不是上游插件镜像），为 AI 
 | 把 NarraCat 产出当未润色初稿，人改 30-50% 后发布 | ✅ 主流路径 |
 | 把 NarraCat 产出直接发到平台 | ⚠️ 不推荐——平台风控正在收紧 |
 
-continuity-editor、伏笔追踪、章节审修循环等系统**是辅助人改的工具**，不是用来逼 LLM 自动达到发布水准的——后者在 2026 年的 LLM 上仍是技术不可达的目标（25 章后所有商业工具实测均出现自相矛盾）。设计论证见 `docs/adr/0006-antipattern-injection-position-accepted.md`。
+continuity-editor、伏笔追踪、章节审修循环等系统**是辅助人改的工具**，不是用来逼 LLM 自动达到发布水准的——后者在 2026 年的 LLM 上仍是技术不可达的目标（25 章后所有商业工具实测均出现自相矛盾）。完整设计论证见维护者层内部 ADR 文档（不随公开仓分发）。
 
 ## 架构
 
@@ -201,7 +201,7 @@ cd mcp-server && npm run build
 cd mcp-server && npm run test
 ```
 
-维护者层规则、写权限模型与核心纪律见 `CLAUDE.md`；4.0 架构的权威规格见 `docs/plans/2026-06-12-agent-core-4.0-rebuild-design.md`。
+维护者层规则、写权限模型、核心纪律与架构权威规格属维护者层内部文档，不随公开仓分发。
 
 ## 许可
 
