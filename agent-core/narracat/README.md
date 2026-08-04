@@ -205,4 +205,4 @@ cd mcp-server && npm run test
 
 ## 许可
 
-MIT
+AGPL-3.0-only（与仓库整体一致，见仓库根 [LICENSE](../../LICENSE)）。
