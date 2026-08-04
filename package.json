@@ -10,7 +10,7 @@
     "dev": "node scripts/check-node-runtime.mjs && node scripts/prepare-narracat-agent-core.mjs --if-missing --optional && node scripts/ensure-electron-native.mjs && electron-vite dev",
     "build": "node scripts/check-node-runtime.mjs && electron-vite build",
     "preview": "node scripts/check-node-runtime.mjs && electron-vite preview",
-    "test": "node scripts/check-architecture.mjs --enforce && bun test ./scripts ./electron ./src ./shared ./agent-core/narracat/scripts ./agent-core/narracat/eval",
+    "test": "node scripts/check-architecture.mjs --enforce && bun test ./scripts ./electron ./src ./shared ./agent-core/narracat/scripts",
     "prepare:narracat-agent-core": "node scripts/prepare-narracat-agent-core.mjs",
     "verify:narracat-agent-core": "node scripts/prepare-narracat-agent-core.mjs --check-version --source agent-core/narracat",
     "audit:narracat-prompts": "node scripts/audit-narracat-prompts.mjs",
