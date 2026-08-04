@@ -1,11 +1,17 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, test } from 'bun:test'
 
 const design = readFileSync('docs/design.md', 'utf8')
-const workflow = readFileSync('docs/agents/workflow.md', 'utf8')
 const checkDesign = readFileSync('scripts/check-design-system.mjs', 'utf8')
 const brandEntrypoint = readFileSync('src/components/brand/index.ts', 'utf8')
 const brandReadme = readFileSync('src/components/brand/README.md', 'utf8')
+
+// docs/agents/workflow.md 是内部 OPS 流程文档，开源准备（2026-08-04）时已从公开仓
+// .gitignore 排除（见仓库根 .gitignore「private assets」段）——全新 checkout 里不存在。
+// 该文件在场时（内部/dogfood 环境）才读取并跑下面「OPS guidance」用例，缺席环境跳过。
+const WORKFLOW_DOC_PATH = 'docs/agents/workflow.md'
+const WORKFLOW_DOC_AVAILABLE = existsSync(WORKFLOW_DOC_PATH)
+const workflow = WORKFLOW_DOC_AVAILABLE ? readFileSync(WORKFLOW_DOC_PATH, 'utf8') : ''
 
 describe('brand governance', () => {
   test('documents a stable component entrypoint for future pages', () => {
@@ -37,7 +43,7 @@ describe('brand governance', () => {
     expect(checkDesign).toContain('assets/illustrations/narracat/')
   })
 
-  test('OPS guidance points brand asset work at the durable rules', () => {
+  test.skipIf(!WORKFLOW_DOC_AVAILABLE)('OPS guidance points brand asset work at the durable rules', () => {
     expect(workflow).toContain('品牌资产')
     expect(workflow).toContain('docs/design.md')
     expect(workflow).toContain('src/components/brand/README.md')
