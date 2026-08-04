@@ -52,8 +52,7 @@ NarraCat 让智能先理解你的所想，再协助构建世界观、推进剧�
 
 ## 参与
 
-- 使用求助/闲聊 → [Discussions](https://github.com/pantsbang-yannik/narracat-novel-agent/discussions)
-- Bug/功能建议 → [Issues](https://github.com/pantsbang-yannik/narracat-novel-agent/issues)（**请勿粘贴小说正文与 API Key**）
+- Bug/功能建议/使用求助 → [Issues](https://github.com/pantsbang-yannik/narracat-novel-agent/issues)（**请勿粘贴小说正文与 API Key**）
 - 参与开发 → [CONTRIBUTING.md](./CONTRIBUTING.md) · 架构导览 → [ARCHITECTURE.md](./ARCHITECTURE.md)
 - 安全问题 → [SECURITY.md](./SECURITY.md)
 
