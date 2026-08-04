@@ -47,20 +47,27 @@ describe('result notification persistence', () => {
     expect(listed.unreadCount).toBe(2)
   })
 
-  test('keeps only 100 local notifications and lists the latest 20 by default', async () => {
-    const userData = await mkdtemp(join(tmpdir(), 'narracat-notifications-cap-'))
-    const storePath = notificationsPath(userData)
+  test(
+    'keeps only 100 local notifications and lists the latest 20 by default',
+    async () => {
+      const userData = await mkdtemp(join(tmpdir(), 'narracat-notifications-cap-'))
+      const storePath = notificationsPath(userData)
 
-    for (let index = 1; index <= 101; index += 1) {
-      await upsertResultNotification(storePath, notification(index))
-    }
+      for (let index = 1; index <= 101; index += 1) {
+        await upsertResultNotification(storePath, notification(index))
+      }
 
-    const listed = await listResultNotifications(storePath)
-    expect(listed.notifications).toHaveLength(20)
-    expect(listed.notifications[0]?.runId).toBe('run-101')
-    expect(listed.notifications.at(-1)?.runId).toBe('run-82')
-    expect(listed.totalCount).toBe(100)
-  })
+      const listed = await listResultNotifications(storePath)
+      expect(listed.notifications).toHaveLength(20)
+      expect(listed.notifications[0]?.runId).toBe('run-101')
+      expect(listed.notifications.at(-1)?.runId).toBe('run-82')
+      expect(listed.totalCount).toBe(100)
+    },
+    // 101 次真实顺序读改写文件 I/O，本机 <100ms，但在 GitHub Actions ubuntu runner 上
+    // 实测偶发撞上 bun 默认 5000ms 超时（磁盘 I/O 延迟波动，非逻辑问题）——放宽到 20s
+    // 给慢速/抖动环境留够余量，不改变断言本身。
+    20_000,
+  )
 
   test('marks one notification and all notifications as read', async () => {
     const userData = await mkdtemp(join(tmpdir(), 'narracat-notifications-read-'))
