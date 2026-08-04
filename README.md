@@ -1,51 +1,46 @@
-# NarraCat-app
+<div align="center">
 
-面向中国网文作者的 AI 共创桌面应用。NarraCat-app 内部维护 NarraCat Agent Core：App orchestration layer 负责 Library、Workbench、Settings、IPC、Agent 对话和产品化 Agent 入口；Agent Core 负责小说创作命令、运行适配器和项目文件合同。
+# NarraCat 🐈‍⬛
 
-## 当前状态
+**面向中国网文作者的 AI 共创桌面应用**
 
-当前阶段、已完成事项、下一步和阻塞记录在 [`docs/agents/progress.md`](docs/agents/progress.md)。README 不维护阶段看板，避免和 OPS 文档漂移。
+*NarraCat is an AI-powered desktop writing studio for Chinese web-novel authors — plan, draft, and manage million-word serials with an agentic creative engine that keeps long-range plot memory.*
 
-## 开发
+[![CI](https://github.com/pantsbang-yannik/narracat-novel-agent/actions/workflows/app-ci.yml/badge.svg)](https://github.com/pantsbang-yannik/narracat-novel-agent/actions)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](./LICENSE)
+[![Release](https://img.shields.io/github/v/release/pantsbang-yannik/narracat-novel-agent)](https://github.com/pantsbang-yannik/narracat-novel-agent/releases)
 
-本项目开发命令需要 Node.js `^22.12.0`。如果使用 nvm：
+</div>
 
-```bash
-nvm install 22
-nvm use 22
-```
+<!-- screenshots:start 由演示小说素材任务填充 -->
+<!-- screenshots:end -->
 
-```bash
-bun install --no-cache
+## 三步开始写
 
-bun --no-cache run dev
-bun --no-cache run typecheck
-bun --no-cache run test
-bun --no-cache run check:design
-bun --no-cache run build
-```
+1. **下载安装**：到 [Releases](https://github.com/pantsbang-yannik/narracat-novel-agent/releases) 下载最新 DMG（目前仅支持 **macOS Apple Silicon**；其他平台暂无时间表，欢迎关注）
+2. **配置模型**：NarraCat 采用 BYOK（自带 API Key）。推荐 DeepSeek，几分钟即可申请，费用与配置见 [FAQ](./docs/faq.md)
+3. **开一本书**：新建小说 → 立项卡定题材与金手指 → 让 Agent 铺大纲、写第一章
 
-根据改动类型选择最小验证集合，见 [`docs/agents/verification.md`](docs/agents/verification.md)。不要机械全量运行。
+## 它能做什么
 
-## 配置
+- 📖 **超长篇底座**：立项 → 大纲 → 章纲 → 成稿的全流程产品化，角色/伏笔/世界观结构化管理
+- 🧠 **长程记忆**：内置 NovelMemory 记忆库，写到第 100 章仍记得第 3 章埋的钩子
+- ✍️ **创作引擎全开源**：写作 prompt 工程（agents/skills/commands）就在 `agent-core/` 里，欢迎研究与改进
+- 🧩 **能力包**：手写卡、从书学写法、作家向导，把你的写作偏好装进引擎
+- 💬 **角色聊天**：和你笔下的角色唠个嗑，TA 记得自己的经历
 
-复制 `.env.example` 到 `.env`，填入 LLM API Key。App 配置和 API Key 运行时由 Settings 页面管理，API Key 通过 keytar 写入系统钥匙串。
+## AI 生成内容声明
 
-NarraCat Agent Core 源码位于 `agent-core/narracat/`，开发启动会校验缺失的运行适配器产物；打包后复制为 Electron resources 下的 `NarraCatAgentCore`。版本锁和打包验收流程见 [`resources/README.md`](resources/README.md)。
+- 你用 NarraCat 生成的内容，权利与责任归你
+- 各网文平台对 AI 辅助创作有各自政策，投稿前请自行确认目标平台规则
 
-## 文档入口
+## 参与
 
-进入项目时优先阅读：
+- 使用求助/闲聊 → [Discussions](https://github.com/pantsbang-yannik/narracat-novel-agent/discussions)
+- Bug/功能建议 → [Issues](https://github.com/pantsbang-yannik/narracat-novel-agent/issues)（**请勿粘贴小说正文与 API Key**）
+- 参与开发 → [CONTRIBUTING.md](./CONTRIBUTING.md) · 架构导览 → [ARCHITECTURE.md](./ARCHITECTURE.md)
+- 安全问题 → [SECURITY.md](./SECURITY.md)
 
-1. [`AGENTS.md`](AGENTS.md)：项目约束、架构和工作方式。
-2. [`CONTEXT.md`](CONTEXT.md)：统一术语。
-3. [`docs/agents/progress.md`](docs/agents/progress.md)：当前阶段和下一步。
-4. [`docs/agents/workflow.md`](docs/agents/workflow.md)：OPS 路由规则。
-5. [`docs/agents/verification.md`](docs/agents/verification.md)：验证矩阵。
-6. [`docs/adr/`](docs/adr)：已接受的架构决策。
+## License
 
-## 历史资料
-
-[`poc/`](poc/) 和 [`docs/poc-results.md`](docs/poc-results.md) 是 Phase 0 技术验证材料，不属于当前 App 运行时代码，也不属于当前验证流程。
-
-历史计划和规格保留在 [`docs/superpowers/`](docs/superpowers/) 和 [`docs/plans/`](docs/plans/)；当前工作以 OPS 文档和相关 issue / plan 为准。
+[AGPL-3.0](./LICENSE) — 你可以自由使用、修改、分发；基于本项目的分发或网络服务须以同等条款开源。
