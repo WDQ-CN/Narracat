@@ -18,6 +18,7 @@ const FORBIDDEN_TRACKED_PREFIXES = [
   '.claude/', '.agents/', '.superpowers/', 'poc/',
   'docs/adr/', 'docs/agents/', 'docs/superpowers/', 'docs/plans/', 'docs/report/', 'docs/research/',
   'scripts/corpus-factory/',
+  'scripts/reader-sim/',
 ]
 // 允许 pantsbang-yannik；禁其余个人标识
 const FORBIDDEN_CONTENT = ['/Users/yannik', 'yangnik528', 'yannikzhang528', '张子扬']
