@@ -1,4 +1,6 @@
 <div align="center">
+  
+<img width="1200" height="438" alt="image" src="https://github.com/user-attachments/assets/12e4883e-8a3d-4110-9578-2edc063f87aa" />
 
 # NarraCat 🐈‍⬛
 
@@ -10,9 +12,23 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](./LICENSE)
 [![Release](https://img.shields.io/github/v/release/pantsbang-yannik/narracat-novel-agent)](https://github.com/pantsbang-yannik/narracat-novel-agent/releases)
 
+*在人类文明中，故事一直来自人的记忆、情感与想象。<br>
+从口述，到书写，再到数字时代，技术不断改变表达方式，但创造故事的，<br>
+始终是人。<br>
+在智能时代，创作不必再被时间与执行成本限制。<br>
+NarraCat 让智能先理解你的所想，再协助构建世界观、推进剧情结构、生成章节
+内容。<br>
+你决定故事的意义与方向，智能负责让故事持续生长。<br>
+我们不试图替代创作者，我们只希望一<br>
+让更多故事，有机会被完成。*
+
 </div>
 
-<!-- screenshots:start 由演示小说素材任务填充 -->
+<img width="1920" height="1130" alt="image" src="https://github.com/user-attachments/assets/8e5ed7c0-ac41-4800-adc4-547fe4e71d16" />
+<img width="1920" height="1130" alt="image" src="https://github.com/user-attachments/assets/7fe331e1-4678-42ef-a052-c6f282afc5a2" />
+<img width="1920" height="1130" alt="image" src="https://github.com/user-attachments/assets/a1e8e4d5-4ee7-4971-a546-89012026ebf2" />
+
+
 <!-- screenshots:end -->
 
 ## 三步开始写
