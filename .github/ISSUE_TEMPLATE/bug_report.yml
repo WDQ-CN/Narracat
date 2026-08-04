@@ -1,0 +1,22 @@
+name: 🐛 Bug 报告
+description: 应用行为异常、报错、崩溃
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > ⚠️ **提交前请脱敏**：不要粘贴你的小说正文、API Key，或未删减的完整日志（可能含个人路径与密钥）。
+  - type: textarea
+    id: what
+    attributes: { label: 发生了什么, description: 现象 + 期望的正确行为 }
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes: { label: 复现步骤, placeholder: "1. 打开… 2. 点击… 3. 出现…" }
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes: { label: NarraCat 版本（设置页可查） }
+    validations: { required: true }
+  - type: input
+    id: model
+    attributes: { label: 使用的模型服务商与模型 }

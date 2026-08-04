@@ -63,16 +63,10 @@ jobs:
         if: ${{ always() }}
         run: npm run lint:manifest-sync
 
-  agent-core-eval-tests:
-    name: Agent Core Eval Deterministic Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      # eval lib 是零依赖纯函数（match/fixtures 的比对与场景发现），免 LLM、免 better-sqlite3，
-      # 可安全进 CI；质量 eval（run.mjs 端到端）真调抽取模型，永不进 CI。
-      - name: Run extraction eval lib tests
-        run: bun test ./agent-core/narracat/eval
+  # agent-core-eval-tests job 已移除：agent-core/narracat/eval/（抽取 eval 语料与骨架）
+  # 是私有语料目录，开源准备（2026-08-04）时未纳入本仓。原 job 跑
+  # `bun test ./agent-core/narracat/eval`，路径不存在时 bun test 以非零退出码失败，
+  # 故整 job 摘除而非留空跑红。
 
   agent-core-mcp-build:
     name: Agent Core MCP Build

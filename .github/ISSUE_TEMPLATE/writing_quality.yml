@@ -1,0 +1,18 @@
+name: ✍️ 写作质量反馈
+description: 生成的大纲/章节/角色不符合预期
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > ⚠️ **请勿整段粘贴你的小说正文**。请改述问题或只引用一两句（≤50 字）作为示例；不要贴 API Key。
+  - type: textarea
+    id: expectation
+    attributes: { label: 哪个环节、期望 vs 实际, description: "例：章纲的爽点安排太平 / 成稿对话腔调不对" }
+    validations: { required: true }
+  - type: input
+    id: model
+    attributes: { label: 使用的模型服务商与模型 }
+    validations: { required: true }
+  - type: input
+    id: genre
+    attributes: { label: 题材/类型（如 都市脑洞/玄幻） }

@@ -1,0 +1,10 @@
+name: 💡 功能建议
+description: 想要的新能力或改进
+body:
+  - type: textarea
+    id: problem
+    attributes: { label: 想解决什么问题, description: 描述你的创作场景与卡点，而不只是方案 }
+    validations: { required: true }
+  - type: textarea
+    id: idea
+    attributes: { label: 设想的样子（可选） }

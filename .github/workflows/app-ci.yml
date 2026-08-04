@@ -1,0 +1,15 @@
+name: app-ci
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: native deps for keytar
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev
+      - run: bun install --no-cache
+      - run: bun --no-cache run typecheck
+      - run: bun --no-cache run test
