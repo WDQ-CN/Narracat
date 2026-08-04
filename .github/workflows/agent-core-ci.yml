@@ -1,9 +1,8 @@
 name: Agent Core CI
 
 # 仓库根桥接 workflow：让 agent-core/narracat 的 lint 与 mcp-server 构建真实跑在 GitHub Actions 上。
-# 背景：agent-core 还是上游独立仓库时，workflow 住在 agent-core/narracat/.github/workflows/；
-# ADR-0007 cutover 进本仓库后未跟进——GitHub Actions 只读取仓库根 .github/workflows/，
-# 子目录下的 workflow 从不执行（见 issue #237）。本 workflow 把执行位置桥接回仓库根。
+# GitHub Actions 只读取仓库根 .github/workflows/，子目录（agent-core/narracat/.github/…）下的
+# workflow 文件从不会被执行，本 workflow 把执行位置桥接回仓库根。
 #
 # 路径过滤：仅 agent-core/** 变更时跑，App 层改动不触发。
 
@@ -41,12 +40,13 @@ jobs:
       - name: Run provenance lint
         if: ${{ always() }}
         run: npm run lint:provenance
-      - name: Run corpus lint
-        if: ${{ always() }}
-        run: npm run lint:corpus
-      - name: Run corpus deid lint
-        if: ${{ always() }}
-        run: npm run lint:corpus-deid
+      # lint:corpus / lint:corpus-deid 步骤已移除：两者校验的是
+      # skills/novel-style-reference/references/corpus/extracts/（真人小说范例语料）本身
+      # 的数据规范，该目录是版权受限的私有数据，开源准备（2026-08-04）时已从公开仓
+      # .gitignore 排除（不同于 eval/：那是整目录未纳入仓库，这里是仓内路径存在但内容
+      # 被忽略，目录在全新 checkout 里同样不存在）。两个脚本对缺目录都 fail-closed
+      # （`corpus-lint: 找不到 extracts 目录` → exit 1），且校验对象本就不随公开仓分发，
+      # 在本仓 CI 里跑没有意义，故摘除（内部/dogfood 仓库若拉取了完整语料可自行保留）。
       - name: Run craft-pack lint
         if: ${{ always() }}
         run: npm run lint:craft-pack

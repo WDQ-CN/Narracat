@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   isPayoffCoolingAnnotation,
@@ -10,6 +10,18 @@ import {
   queryStyleReference,
   workIdOf,
 } from "./corpus-loader.js";
+
+// 真人小说范例语料（references/corpus/extracts/）是版权受限的私有数据，开源准备
+// （2026-08-04）时已从公开仓 .gitignore 排除（见仓库根 .gitignore「private assets」段）。
+// 本文件下方两个 describe 块直接读该目录验证真实选样质量，目录不存在的环境（开源 CI/
+// 未拉取内部语料的贡献者本机）整体跳过而非假红——语料存在时（内部/dogfood 环境）仍全跑。
+const CORPUS_DIR = fileURLToPath(
+  new URL(
+    "../../skills/novel-style-reference/references/corpus/extracts/",
+    import.meta.url,
+  ),
+);
+const CORPUS_AVAILABLE = existsSync(CORPUS_DIR);
 
 // 真实 corpus 的 annotation → technique 映射，用于侧面验证选样优先级
 function loadCorpusByAnnotation(): Map<string, string[]> {
@@ -108,7 +120,7 @@ describe("annotationCarriesRestraintVocab（#333 注解夹带克制类词 → �
   });
 });
 
-describe("selectStyleExamples（真实 corpus：负向过滤 + 正向优先）", () => {
+describe.skipIf(!CORPUS_AVAILABLE)("selectStyleExamples（真实 corpus：负向过滤 + 正向优先）", () => {
   it("跨多章选样从不返回冷处理/留渣取向的范例", () => {
     for (let ch = 1; ch <= 30; ch += 1) {
       const examples = selectStyleExamples(ch, 3);
@@ -185,7 +197,7 @@ describe("detectChapterEmotions（Layer B：从章纲文本探测目标情绪）
   });
 });
 
-describe("selectStyleExamples × Layer B 情绪匹配", () => {
+describe.skipIf(!CORPUS_AVAILABLE)("selectStyleExamples × Layer B 情绪匹配", () => {
   it("传入本章情绪时，命中该情绪的范例显著多于不传情绪的基线", () => {
     const byEmotion = loadCorpusEmotionByAnnotation();
     const hits = (examples: { mechanism_note: string }[], emo: string) =>

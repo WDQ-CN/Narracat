@@ -1,5 +1,5 @@
 <!--
-PR description 模板。改动 schemas/*.json 时下方"下游影响评估"为必填——CI workflow agent-core-schema-pr-check.yml 会扫描关键字"下游影响"，缺失则 review 阻塞（ADR-0008 schema 软门槛自动化）。
+PR description 模板。改动 schemas/*.json 时下方"下游影响评估"为必填——CI workflow agent-core-schema-pr-check.yml 会扫描关键字"下游影响"，缺失则 review 阻塞。
 -->
 
 ## 改动概述
@@ -20,7 +20,8 @@ PR description 模板。改动 schemas/*.json 时下方"下游影响评估"为�
 
 > ⚠️ 改动 `schemas/*.json` 必须填写本节。CI 会强制检查 PR description 含关键字（中英文均可）：
 > **下游影响** / 下游兼容 / 客户端影响 / 兼容性影响 / downstream impact / breaking change。
-> 背景：ADR-0008 schema 软门槛 + 用户项目目录冻结——本 plugin schema 是事实上的对外契约，用户已基于此构建客户端，silent breaking 会让生产环境的小说项目数据失效。
+> 背景：`agent-core/narracat/schemas/*.json` 是引擎对外的数据契约，用户项目目录里已经落盘了
+> 按旧 schema 写出的文件——silent breaking change 会让这些已有小说项目的数据读不回来。
 
 <!--
 若本 PR 未改 schemas/*.json，本节可删除或保留留空。
