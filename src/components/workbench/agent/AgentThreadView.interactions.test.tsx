@@ -126,6 +126,12 @@ afterEach(() => {
 afterAll(async () => {
   ;(globalThis as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver
   HTMLElement.prototype.scrollIntoView = originalScrollIntoView
+  // 拆全局前让 React scheduler 的低优先级续跑（若有）先落地：不 flush 直接 unregister，
+  // 该续跑可能在下一个文件已 register 新 window 之后才触发，读到跨文件的 window.event
+  // 抛错（bun test 判「unhandled error between tests」，非 pass/fail 但仍拖垮进程退出码）。
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
   await GlobalRegistrator.unregister()
 })
 
