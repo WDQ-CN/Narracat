@@ -1,0 +1,21 @@
+{
+  "work_id": "WK-903",
+  "extracts": [
+    {
+      "id": "WK-903-001",
+      "paragraph": "整座大殿的梁柱在那一瞬间齐齐震颤，尘土从雕花缝隙里簌簌落下。",
+      "annotation": "用建筑体量的物理反应外化冲击力，比直接写惊讶更有分量。",
+      "technique": ["情感渲染"],
+      "emotion": ["震撼"],
+      "usage_scenario": "真相揭露的高潮时刻。"
+    },
+    {
+      "id": "WK-903-002",
+      "paragraph": "他攥紧拳头，指节泛白，却始终没有挥出那一拳。",
+      "annotation": "爽点必须留渣才有余味。",
+      "technique": ["动作细节"],
+      "emotion": ["愤怒"],
+      "usage_scenario": "冲突压制的转折点。"
+    }
+  ]
+}

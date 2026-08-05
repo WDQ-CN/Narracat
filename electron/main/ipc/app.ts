@@ -29,6 +29,7 @@ import type { ReleaseGateVerdict } from '../release-guard.ts'
 import { resolveNarraCatAgentCorePath } from '../engine/engine.ts'
 import { readNarraCatAgentCoreDiagnostics } from '../engine/agent-core-contract.ts'
 import { runEmbeddingHealthProbe } from '../engine/embedding-probe.ts'
+import { runCorpusHealthProbe } from '../engine/corpus-probe.ts'
 import {
   navigationStatePath,
   readStoredWorkLocation,
@@ -201,6 +202,8 @@ export function registerAppIpcHandlers(): void {
       resourcesPath: process.resourcesPath,
     })
   })
+
+  ipcMain.handle('corpus:health-probe', async () => runCorpusHealthProbe())
 
   ipcMain.handle('notifications:list', async (): Promise<ResultNotificationList> => {
     return listResultNotifications(resultNotificationsPath())

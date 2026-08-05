@@ -56,6 +56,7 @@ const api = {
   getPlanningCapabilityReceipts: (input: unknown) => ipcRenderer.invoke('novel-packs:get-planning-receipts', input),
   runPackagedAgentRuntimeProbe: () => ipcRenderer.invoke('runtime:packaged-agent-probe'),
   runEmbeddingHealthProbe: () => ipcRenderer.invoke('embedding:health-probe'),
+  runCorpusHealthProbe: () => ipcRenderer.invoke('corpus:health-probe'),
   listResultNotifications: () => ipcRenderer.invoke('notifications:list'),
   upsertResultNotification: (notification: unknown) => ipcRenderer.invoke('notifications:upsert-result', notification),
   markResultNotificationRead: (id: string) => ipcRenderer.invoke('notifications:mark-read', id),

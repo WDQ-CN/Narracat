@@ -7,6 +7,9 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { detectSourceSignatures, lintCorpusDeid } from './corpus-deid-lint.mjs'
 
+// 语料本体（extracts/index.json/query-index.md）已迁往 narracat-corpus-service，
+// 下列 fixture 不再需要构造它们——lintCorpusDeid 现在只扫 packs evidence 与 skill 文档。
+
 test('detectSourceSignatures 抓原始语料文件路径(.txt)', () => {
   assert.ok(detectSourceSignatures('**文件:** `某目录/100本小说/某书.txt`').length >= 1)
 })
@@ -27,13 +30,7 @@ test('detectSourceSignatures 干净工具壳文本零误报', () => {
 function fixtureRoot({ leakDoc } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'cdl-'))
   const refs = join(root, 'skills/novel-style-reference/references')
-  const extracts = join(refs, 'corpus/extracts')
-  mkdirSync(extracts, { recursive: true })
-  writeFileSync(
-    join(extracts, 'WK-001-extracts.json'),
-    JSON.stringify({ work_id: 'WK-001', extracts: [{ id: 'WK-001-001', paragraph: 'x', annotation: 'y', technique: ['对话设计'] }] }),
-  )
-  writeFileSync(join(refs, 'corpus/index.json'), JSON.stringify({ meta: { total_works: 1 }, works: [{ id: 'WK-001' }] }))
+  mkdirSync(refs, { recursive: true })
   // SKILL.md 在 skill 根（references 之上）——护栏须覆盖它
   writeFileSync(join(root, 'skills/novel-style-reference/SKILL.md'), '---\nname: x\n---\n按手法+情感检索。\n')
   if (leakDoc) writeFileSync(join(refs, leakDoc.name), leakDoc.body)
@@ -57,9 +54,10 @@ test('lintCorpusDeid 抓到 references 下渗入书名/路径的研究文档', (
   assert.ok(r.errors.some((e) => e.includes('leak.md')))
 })
 
-test('lintCorpusDeid 不误扫 corpus/ 子目录(已由 extracts/index/query 专项检测)', () => {
+test('lintCorpusDeid 不误扫 corpus/ 子目录（skipDirName 防御性保留，本仓已无该目录）', () => {
   const root = fixtureRoot()
-  // 在 corpus/ 内放一个含 .txt 字样的维护文档，不应被 skill 文档扫描重复命中
+  // 万一本地残留一个名为 corpus 的子目录，其内文档不应被 skill 文档扫描命中
+  mkdirSync(join(root, 'skills/novel-style-reference/references/corpus'), { recursive: true })
   writeFileSync(
     join(root, 'skills/novel-style-reference/references/corpus/README.md'),
     '入库标准：原始 .txt 语料只存 gitignore 私有台账。\n',
@@ -76,15 +74,10 @@ test('main-guard 在带空格路径下仍执行 lint（spawn 回归）', () => {
   // 与未规整的 argv[1] 路径前缀不一致，干扰对「空格」维度的纯粹验证。
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'cdl with space-')))
   const scriptsDir = join(root, 'scripts')
-  const extracts = join(root, 'skills/novel-style-reference/references/corpus/extracts')
+  const skillDir = join(root, 'skills/novel-style-reference')
   mkdirSync(scriptsDir, { recursive: true })
-  mkdirSync(extracts, { recursive: true })
-  writeFileSync(
-    join(extracts, 'WK-001-extracts.json'),
-    JSON.stringify({ work_id: 'WK-001', extracts: [{ id: 'WK-001-001', paragraph: 'x', annotation: 'y', technique: ['对话设计'] }] }),
-  )
-  writeFileSync(join(root, 'skills/novel-style-reference/references/corpus/index.json'), JSON.stringify({ meta: {}, works: [{ id: 'WK-001' }] }))
-  writeFileSync(join(root, 'skills/novel-style-reference/SKILL.md'), '---\nname: x\n---\n壳\n')
+  mkdirSync(skillDir, { recursive: true })
+  writeFileSync(join(skillDir, 'SKILL.md'), '---\nname: x\n---\n壳\n')
   copyFileSync(fileURLToPath(new URL('./corpus-deid-lint.mjs', import.meta.url)), join(scriptsDir, 'corpus-deid-lint.mjs'))
 
   const r = spawnSync(process.execPath, [join(scriptsDir, 'corpus-deid-lint.mjs')], { encoding: 'utf8' })

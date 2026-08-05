@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join, isAbsolute } from "node:path";
 import { tmpdir } from "node:os";
@@ -48,6 +48,11 @@ import {
   novelListStructureCards,
   getForeshadowingDue,
 } from "./readers.js";
+import { __resetCorpusCachesForTest } from "../corpus-loader.js";
+
+const CORPUS_FIXTURE_DIR = fileURLToPath(
+  new URL("../__fixtures__/corpus-extracts/", import.meta.url),
+);
 
 function loadFixture<T>(name: string): T {
   return JSON.parse(
@@ -1063,25 +1068,21 @@ describe("novel_build_writing_context_pack 未来状态不进当前卡（PR#452�
 });
 
 describe("novel_build_writing_context_pack", () => {
+  // 跨书段真人范例消费点改三态源异步化（Task 6）：本 describe 内多个用例断言
+  // style_examples 的跨书段真实存在（长度/截断行为），指向 Task 5 的 corpus fixture
+  // 目录让 selectStyleExamples 走 local 源，而非默认 disabled 空数组。
+  beforeEach(() => {
+    __resetCorpusCachesForTest();
+    vi.stubEnv("NARRACAT_CORPUS_DIR", CORPUS_FIXTURE_DIR);
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   // 第 1 章正文里的原话（writeManuscript 写的重复句），取 100 字落在 80-400 区间
   const ANCHOR_PARA = "林晚握着断剑站在剑冢里，掌心的伤口还在渗血。".repeat(5);
 
-  // 下方三个用例的「总数仍 3」「跨书段被截断」断言依赖真人小说范例语料
-  // （references/corpus/extracts/）补齐 style_examples 的跨书候选。该语料是版权受限的
-  // 私有数据，开源准备（2026-08-04）时已从公开仓 .gitignore 排除——语料缺席时
-  // selectStyleExamples 按设计 fail-soft 返回空跨书候选（见 corpus-loader.ts），这三个
-  // 用例的数量/截断断言随之落空，故语料不在场的环境（开源 CI/未拉取内部语料的贡献者
-  // 本机）跳过而非假红；语料存在时（内部/dogfood 环境）仍全跑。
-  const CORPUS_AVAILABLE = existsSync(
-    fileURLToPath(
-      new URL(
-        "../../../skills/novel-style-reference/references/corpus/extracts/",
-        import.meta.url,
-      ),
-    ),
-  );
-
-  it.skipIf(!CORPUS_AVAILABLE)("有作者样章时 style_examples 前两段是本书段、总数仍 3", async () => {
+  it("有作者样章时 style_examples 前两段是本书段、总数仍 3", async () => {
     const fixture = createProject();
     await seedFullProject(fixture);
     await novelSubmitStyleAnchor({ action: "add", chapter: 1, excerpt: ANCHOR_PARA }, fixture.ctx);
@@ -1104,7 +1105,7 @@ describe("novel_build_writing_context_pack", () => {
     expect(pack.style_examples[2].mechanism_note).not.toContain("作者选定");
   });
 
-  it.skipIf(!CORPUS_AVAILABLE)("无样章且兜底开启时自动取最近一章开场段", async () => {
+  it("无样章且兜底开启时自动取最近一章开场段", async () => {
     const fixture = createProject({ styleAnchorAutoFallback: true }); // 默认已关，本例专测自动取样路径
     await seedFullProject(fixture);
     const result = (await novelBuildWritingContextPack({ chapter: 2 }, fixture.ctx)) as { pack_path: string };
@@ -1138,7 +1139,7 @@ describe("novel_build_writing_context_pack", () => {
     expect(autoSample?.excerpt).toContain("林晚握着断剑站在剑冢里");
   });
 
-  it.skipIf(!CORPUS_AVAILABLE)("超预算截断优先丢跨书段，本书声音段不被截断吞掉", async () => {
+  it("超预算截断优先丢跨书段，本书声音段不被截断吞掉", async () => {
     const fixture = createProject();
     await seedFullProject(fixture);
 

@@ -1898,17 +1898,15 @@ export async function novelBuildWritingContextPack(args, ctx) {
     // 区块 3：文风范例——本书声音段排最前（作者标记 > 自动取样），跨书真人范例补足到 3 段。
     // 顺序即优先级：下方超预算时从末位丢弃，天然先丢跨书段、保住本书段。
     const bookVoiceExamples = await buildBookVoiceExamples(ctx, chapter, buildNotes);
-    const styleExamples = [
-        ...bookVoiceExamples,
-        ...selectStyleExamples(chapter, 3 - bookVoiceExamples.length, chapterEmotions),
-    ];
+    const crossBookExamples = await selectStyleExamples(chapter, 3 - bookVoiceExamples.length, chapterEmotions);
+    const styleExamples = [...bookVoiceExamples, ...crossBookExamples];
     if (bookVoiceExamples.length > 0) {
         buildNotes.push(`本书声音段 ${bookVoiceExamples.length} 段进包`);
     }
     // 区块 3.5：写手向 Craft Pack（结构化触发选包，命中则写指针，无命中则不写——向后兼容）
     const craftPackHints = selectCraftPacks(chapterOutline, 3, packPools.craft);
     if (styleExamples.length === 0) {
-        buildNotes.push("风格范例语料库为空，本次不注入范例");
+        buildNotes.push("真人范例不可用（语料服务未配置或暂不可达），本次不注入范例");
     }
     // 截断下限：至少留 1 段，且不得吞掉本书声音段——bookVoiceExamples 排在数组最前，
     // pop() 从末位丢弃时天然先丢跨书段；下限设为 bookVoiceExamples.length 才能保证

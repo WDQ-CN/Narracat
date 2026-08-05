@@ -1,5 +1,4 @@
-import { describe, it, expect } from "vitest";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
 import { fileURLToPath } from "node:url";
 import {
   isPayoffCoolingAnnotation,
@@ -9,57 +8,41 @@ import {
   detectChapterEmotions,
   queryStyleReference,
   workIdOf,
+  resolveCorpusSource,
+  __resetCorpusCachesForTest,
 } from "./corpus-loader.js";
 
-// 真人小说范例语料（references/corpus/extracts/）是版权受限的私有数据，开源准备
-// （2026-08-04）时已从公开仓 .gitignore 排除（见仓库根 .gitignore「private assets」段）。
-// 本文件下方两个 describe 块直接读该目录验证真实选样质量，目录不存在的环境（开源 CI/
-// 未拉取内部语料的贡献者本机）整体跳过而非假红——语料存在时（内部/dogfood 环境）仍全跑。
-const CORPUS_DIR = fileURLToPath(
-  new URL(
-    "../../skills/novel-style-reference/references/corpus/extracts/",
-    import.meta.url,
-  ),
+const FIXTURE_DIR = fileURLToPath(
+  new URL("./__fixtures__/corpus-extracts/", import.meta.url),
 );
-const CORPUS_AVAILABLE = existsSync(CORPUS_DIR);
+const realFetch = globalThis.fetch;
 
-// 真实 corpus 的 annotation → technique 映射，用于侧面验证选样优先级
-function loadCorpusByAnnotation(): Map<string, string[]> {
-  const dir = fileURLToPath(
-    new URL(
-      "../../skills/novel-style-reference/references/corpus/extracts/",
-      import.meta.url,
-    ),
-  );
-  const map = new Map<string, string[]>();
-  for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
-    const data = JSON.parse(readFileSync(dir + file, "utf-8")) as {
-      extracts: Array<{ annotation: string; technique: string[] }>;
-    };
-    for (const e of data.extracts) map.set(e.annotation, e.technique);
-  }
-  return map;
-}
+// 宿主 shell/.env 若已配置 NARRACAT_CORPUS_*（.env.example 正引导维护者这么做），会泄入
+// 三态源判定测试——vi.stubEnv 只能覆盖测试内显式设的值，盖不住「宿主本来就有值」，须显式 delete。
+const CORPUS_ENV_KEYS = [
+  "NARRACAT_CORPUS_TOKEN",
+  "NARRACAT_CORPUS_URL",
+  "NARRACAT_CORPUS_DIR",
+] as const;
+const savedCorpusEnv: Partial<Record<(typeof CORPUS_ENV_KEYS)[number], string>> = {};
 
-// excerpt(paragraph) → work_id 映射，用于从返回范例还原书身份（StyleExampleForPack
-// 去标识后不带 work_id，靠段落回查）；验证「同书去重」真生效（3 条来自 3 本不同书）。
-function buildExcerptToWorkId(): Map<string, string> {
-  const dir = fileURLToPath(
-    new URL(
-      "../../skills/novel-style-reference/references/corpus/extracts/",
-      import.meta.url,
-    ),
-  );
-  const map = new Map<string, string>();
-  for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
-    const data = JSON.parse(readFileSync(dir + file, "utf-8")) as {
-      work_id: string;
-      extracts: Array<{ paragraph: string }>;
-    };
-    for (const e of data.extracts) map.set(e.paragraph, data.work_id);
+beforeEach(() => {
+  __resetCorpusCachesForTest();
+  vi.unstubAllEnvs();
+  for (const key of CORPUS_ENV_KEYS) {
+    if (process.env[key] !== undefined) savedCorpusEnv[key] = process.env[key];
+    delete process.env[key];
   }
-  return map;
-}
+});
+afterEach(() => {
+  globalThis.fetch = realFetch;
+  vi.unstubAllEnvs();
+  for (const key of CORPUS_ENV_KEYS) {
+    if (savedCorpusEnv[key] !== undefined) process.env[key] = savedCorpusEnv[key];
+    else delete process.env[key];
+    delete savedCorpusEnv[key];
+  }
+});
 
 describe("isPayoffCoolingAnnotation（#333 负向过滤：冷处理 payoff/留渣取向）", () => {
   it("命中「把爽点收着/留渣/从爽滑向闷」取向", () => {
@@ -120,63 +103,6 @@ describe("annotationCarriesRestraintVocab（#333 注解夹带克制类词 → �
   });
 });
 
-describe.skipIf(!CORPUS_AVAILABLE)("selectStyleExamples（真实 corpus：负向过滤 + 正向优先）", () => {
-  it("跨多章选样从不返回冷处理/留渣取向的范例", () => {
-    for (let ch = 1; ch <= 30; ch += 1) {
-      const examples = selectStyleExamples(ch, 3);
-      expect(examples.length).toBeGreaterThan(0);
-      for (const ex of examples) {
-        expect(isPayoffCoolingAnnotation(ex.mechanism_note)).toBe(false);
-      }
-    }
-  });
-
-  it("正向池足够时，选出的范例全部偏画面感/情绪外显，且来自不同作品", () => {
-    const byAnnotation = loadCorpusByAnnotation();
-    const x2w = buildExcerptToWorkId();
-    for (const ch of [1, 8, 9, 17, 23]) {
-      const examples = selectStyleExamples(ch, 3);
-      expect(examples).toHaveLength(3);
-      // 同书去重真生效：3 条范例须来自 3 本不同作品（work_id 维度，非仅段落不同）
-      expect(examples.every((e) => x2w.has(e.excerpt))).toBe(true);
-      expect(new Set(examples.map((e) => x2w.get(e.excerpt))).size).toBe(3);
-      // 正向池(76 条)远大于 count(3)，每条都应带画面感/情绪外显技法
-      for (const ex of examples) {
-        const technique = byAnnotation.get(ex.mechanism_note) ?? [];
-        expect(hasVividTechnique(technique)).toBe(true);
-      }
-    }
-  });
-
-  it("干净注解充足时，选样不返回夹带克制类词的注解（降级生效）", () => {
-    // 正向且注解干净的范例(67 条)远大于 count(3)，
-    // 故任何章节选出的注解都不应夹带克制类词
-    for (let ch = 1; ch <= 30; ch += 1) {
-      for (const ex of selectStyleExamples(ch, 3)) {
-        expect(annotationCarriesRestraintVocab(ex.mechanism_note)).toBe(false);
-      }
-    }
-  });
-});
-
-// annotation → emotion[] 映射，用于验证情绪匹配选样
-function loadCorpusEmotionByAnnotation(): Map<string, string[]> {
-  const dir = fileURLToPath(
-    new URL(
-      "../../skills/novel-style-reference/references/corpus/extracts/",
-      import.meta.url,
-    ),
-  );
-  const map = new Map<string, string[]>();
-  for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
-    const data = JSON.parse(readFileSync(dir + file, "utf-8")) as {
-      extracts: Array<{ annotation: string; emotion: string[] }>;
-    };
-    for (const e of data.extracts) map.set(e.annotation, e.emotion);
-  }
-  return map;
-}
-
 describe("detectChapterEmotions（Layer B：从章纲文本探测目标情绪）", () => {
   it("命中事件型/情绪型线索", () => {
     expect(detectChapterEmotions("两人对峙，凶险逼近，生死一线")).toContain("紧张");
@@ -197,51 +123,97 @@ describe("detectChapterEmotions（Layer B：从章纲文本探测目标情绪）
   });
 });
 
-describe.skipIf(!CORPUS_AVAILABLE)("selectStyleExamples × Layer B 情绪匹配", () => {
-  it("传入本章情绪时，命中该情绪的范例显著多于不传情绪的基线", () => {
-    const byEmotion = loadCorpusEmotionByAnnotation();
-    const hits = (examples: { mechanism_note: string }[], emo: string) =>
-      examples.filter((ex) => (byEmotion.get(ex.mechanism_note) ?? []).includes(emo)).length;
-    let withEmo = 0;
-    let withoutEmo = 0;
-    for (let ch = 1; ch <= 20; ch += 1) {
-      withEmo += hits(selectStyleExamples(ch, 3, ["温暖"]), "温暖");
-      withoutEmo += hits(selectStyleExamples(ch, 3), "温暖");
-    }
-    expect(withEmo).toBeGreaterThan(withoutEmo);
-  });
-
-  it("情绪匹配只是档内偏好：仍不破负向过滤、不同作品", () => {
-    const x2w = buildExcerptToWorkId();
-    for (let ch = 1; ch <= 20; ch += 1) {
-      const ex = selectStyleExamples(ch, 3, ["紧张"]);
-      expect(ex.length).toBeGreaterThan(0);
-      for (const e of ex) {
-        expect(isPayoffCoolingAnnotation(e.mechanism_note)).toBe(false);
-      }
-      // 同书去重：返回条数 == 不同 work_id 数（每条来自不同书）
-      expect(ex.every((e) => x2w.has(e.excerpt))).toBe(true);
-      expect(new Set(ex.map((e) => x2w.get(e.excerpt))).size).toBe(ex.length);
-    }
-  });
-
-  it("不传情绪时与历史行为完全一致（向后兼容）", () => {
-    for (const ch of [1, 8, 9, 17, 23]) {
-      expect(selectStyleExamples(ch, 3, [])).toEqual(selectStyleExamples(ch, 3));
-    }
-  });
-
-  // 回归守卫：检索库扩容（147→数千）后，按高频手法应能查到数百条真人范例；
-  // 防 corpus 被误删/回退成稀疏池（扩容前「对话设计」远不足此数）。
-  it("扩容后语料池规模显著（防回退稀疏池）", () => {
-    const r = queryStyleReference({ technique: ["对话设计"] });
-    expect(r.total_matches).toBeGreaterThan(300);
-  });
-});
-
 describe("workIdOf（从记录 id 取 work_id，供同书去重）", () => {
   it("取 WK 前缀，剥掉末段 -NNN", () => {
     expect(workIdOf("WK-031-001")).toBe("WK-031");
     expect(workIdOf("WK-068-142")).toBe("WK-068");
+  });
+});
+
+describe("resolveCorpusSource（三态源判定）", () => {
+  it("NARRACAT_CORPUS_DIR 优先 → local", () => {
+    vi.stubEnv("NARRACAT_CORPUS_DIR", "/tmp/corpus");
+    vi.stubEnv("NARRACAT_CORPUS_TOKEN", "t");
+    expect(resolveCorpusSource()).toEqual({ mode: "local", dir: "/tmp/corpus" });
+  });
+  it("有 token 无 dir → remote，URL 默认 corpus.narracat.com 可被 env 覆盖", () => {
+    vi.stubEnv("NARRACAT_CORPUS_TOKEN", "t");
+    expect(resolveCorpusSource()).toEqual({ mode: "remote", url: "https://corpus.narracat.com", token: "t" });
+    vi.stubEnv("NARRACAT_CORPUS_URL", "http://localhost:8787");
+    expect(resolveCorpusSource()).toMatchObject({ url: "http://localhost:8787" });
+  });
+  it("均无 → disabled（fork 默认态）", () => {
+    expect(resolveCorpusSource({})).toEqual({ mode: "disabled" });
+  });
+});
+
+describe("local 模式（fixture 语料）", () => {
+  it("selectStyleExamples 走本地目录：过滤负向、同书去重", async () => {
+    vi.stubEnv("NARRACAT_CORPUS_DIR", FIXTURE_DIR);
+    const ex = await selectStyleExamples(1, 3);
+    expect(ex).toHaveLength(3);
+    for (const e of ex) expect(e.mechanism_note).not.toContain("留渣");
+  });
+  it("queryStyleReference 走本地目录打分", async () => {
+    vi.stubEnv("NARRACAT_CORPUS_DIR", FIXTURE_DIR);
+    const r = await queryStyleReference({ technique: ["动作细节"], emotion: ["紧张"] });
+    expect(r.total_matches).toBeGreaterThan(0);
+    expect(r.unavailable).toBeUndefined();
+  });
+});
+
+describe("remote 模式（stub fetch）", () => {
+  it("selectStyleExamples 发 /v1/select-examples 带 Bearer，成功结果进程内缓存（同参不二发）", async () => {
+    vi.stubEnv("NARRACAT_CORPUS_TOKEN", "tok-1");
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), init });
+      return new Response(JSON.stringify({ ok: true, examples: [{ excerpt: "远", mechanism_note: "注" }] }), { status: 200 });
+    }) as typeof fetch;
+    const a = await selectStyleExamples(7, 2, ["紧张"]);
+    const b = await selectStyleExamples(7, 2, ["紧张"]);
+    expect(a).toEqual([{ excerpt: "远", mechanism_note: "注" }]);
+    expect(b).toEqual(a);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe("https://corpus.narracat.com/v1/select-examples");
+    expect((calls[0].init.headers as Record<string, string>).authorization).toBe("Bearer tok-1");
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ chapter: 7, limit: 2, emotions: ["紧张"] });
+  });
+  it("网络失败/非 200 → fail-open 空数组且不缓存（下次重试）", async () => {
+    vi.stubEnv("NARRACAT_CORPUS_TOKEN", "tok-1");
+    let n = 0;
+    globalThis.fetch = (async () => { n += 1; throw new Error("offline"); }) as typeof fetch;
+    expect(await selectStyleExamples(1, 3)).toEqual([]);
+    expect(await selectStyleExamples(1, 3)).toEqual([]);
+    expect(n).toBe(2);
+  });
+  it("queryStyleReference 失败（5xx）→ {results:[], total_matches:0, unavailable:true}", async () => {
+    vi.stubEnv("NARRACAT_CORPUS_TOKEN", "tok-1");
+    globalThis.fetch = (async () => new Response("oops", { status: 500 })) as typeof fetch;
+    expect(await queryStyleReference({ technique: ["对话设计"] })).toEqual({ results: [], total_matches: 0, unavailable: true });
+  });
+  it("HTTP 400（入参越界）→ selectStyleExamples 返回 []（不是「服务不可用」重试语义）", async () => {
+    vi.stubEnv("NARRACAT_CORPUS_TOKEN", "tok-1");
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ ok: false, error: "invalid_params" }), { status: 400 })) as typeof fetch;
+    expect(await selectStyleExamples(1, 3)).toEqual([]);
+  });
+  it("HTTP 400（入参越界）→ queryStyleReference 返回空结果且不带 unavailable（区分「零匹配」与「不可用」）", async () => {
+    vi.stubEnv("NARRACAT_CORPUS_TOKEN", "tok-1");
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ ok: false, error: "invalid_params" }), { status: 400 })) as typeof fetch;
+    const r = await queryStyleReference({ technique: ["对话设计"] });
+    expect(r).toEqual({ results: [], total_matches: 0 });
+    expect(r.unavailable).toBeUndefined();
+  });
+});
+
+describe("disabled 模式（fork 默认态）", () => {
+  it("不发任何请求，直接空/unavailable", async () => {
+    let called = false;
+    globalThis.fetch = (async () => { called = true; return new Response("{}"); }) as typeof fetch;
+    expect(await selectStyleExamples(1, 3)).toEqual([]);
+    expect(await queryStyleReference({ technique: ["对话设计"] })).toMatchObject({ unavailable: true });
+    expect(called).toBe(false);
   });
 });

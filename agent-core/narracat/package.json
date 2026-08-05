@@ -7,7 +7,6 @@
   "scripts": {
     "lint:schema-drift": "node scripts/schema-drift-lint.mjs",
     "lint:provenance": "node scripts/provenance-lint.mjs",
-    "lint:corpus": "node scripts/corpus-lint.mjs",
     "lint:corpus-deid": "node scripts/corpus-deid-lint.mjs",
     "lint:craft-pack": "node scripts/craft-pack-lint.mjs",
     "lint:structure-pack": "node scripts/structure-pack-lint.mjs",

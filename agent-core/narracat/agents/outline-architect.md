@@ -78,7 +78,7 @@ skills:
 2. 把每个 arc 的 core_question 拆成各章的推进步：蓄压 → 对抗 → 释放；arc 末章给出 yes/no 结算并触发 next_arc_seed；把 arc 的 payoff_beats（主节拍）落到具体章，小爽另按反馈回路的粒度铺进沿途各章。区间跨多个 arc 时逐 arc 顺次铺排。
 3. 每章产出 `{chapter, title, positioning, beats[], must_deliver[]?, payoff_beat?, payoff_intensity?, end_hook, storyline_focus[], characters[], pov_character, foreshadowing_touch[]?, state_changes[]?}`：
    - `positioning`：本章定位，一两句点清这章在 arc/卷弧线里的位置与戏剧功能：为什么非有这章不可，它把整体往前推到哪。
-   - `beats`：有序场景骨架，每条一个推进节拍、按发生顺序排；行内可带「入场压力 / 升级 / 翻转·揭示 / 不可逆选择 / 收尾」这类节拍标签（自由文本，不是受控枚举）。至少 3 条，条数随本章戏量灵活。每条写事件层：这一拍发生什么戏（谁做了什么、逼出什么后果），不写语气或写法处方。随手带出的具体元素（道具、生物、次要角色）一旦制造了威胁或期待就欠读者一次交代——当场收尾或登记进伏笔延后兑现，见 foreshadow-distance 包。
+   - `beats`：有序场景骨架，每条一个推进节拍、按发生顺序排；行内可带「入场压力 / 升级 / 翻转·揭示 / 不可逆选择 / 收尾」这类节拍标签（自由文本，不是受控枚举）。至少 3 条，条数随本章戏量灵活。每条写事件层：这一拍发生什么戏（谁做了什么、逼出什么后果），不写语气或写法处方，也不预写演法——比喻、生理反应、感官描写的具体写法归写手。两分判据：删掉这个细节这场戏仍成立的，不写；删掉戏就断的（承载功能的动作、道具、关键台词），才写进节拍。随手带出的具体元素（道具、生物、次要角色）一旦制造了威胁或期待就欠读者一次交代——当场收尾或登记进伏笔延后兑现，见 foreshadow-distance 包。
    - `must_deliver`：可空。本章绕不过的硬交付项：非落地不可的爽点或伏笔，写成显式条目（如「某线索靠物证呈现、不靠旁白」），让写手知道这章的硬指标。
    - `payoff_beat`：可空。本章兑现的爽点类型（face_slap / level_up / windfall / fame / reveal / reunion / counterattack / sweet）。medium / large 的主节拍从 arc 的 payoff_beats 里落到具体章；small 的小爽不受 arc 列表限制，按本书反馈回路的小爽粒度自由铺——蓄压期也要密布小兑现维持在场感，别连续多章不给糖。真正的纯过渡章才留空。
    - `payoff_intensity`：可空，填了 `payoff_beat` 就同步标一个强度（small / medium / large）——这一下是日常小确幸、阶段性翻身，还是全书级大爆点，强度谱与间隔纪律见 payoff-cadence 包。没爽点的章两个字段都留空。

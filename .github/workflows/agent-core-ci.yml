@@ -40,13 +40,12 @@ jobs:
       - name: Run provenance lint
         if: ${{ always() }}
         run: npm run lint:provenance
-      # lint:corpus / lint:corpus-deid 步骤已移除：两者校验的是
-      # skills/novel-style-reference/references/corpus/extracts/（真人小说范例语料）本身
-      # 的数据规范，该目录是版权受限的私有数据，开源准备（2026-08-04）时已从公开仓
-      # .gitignore 排除（不同于 eval/：那是整目录未纳入仓库，这里是仓内路径存在但内容
-      # 被忽略，目录在全新 checkout 里同样不存在）。两个脚本对缺目录都 fail-closed
-      # （`corpus-lint: 找不到 extracts 目录` → exit 1），且校验对象本就不随公开仓分发，
-      # 在本仓 CI 里跑没有意义，故摘除（内部/dogfood 仓库若拉取了完整语料可自行保留）。
+      # lint:corpus 已随语料本体退役（语料迁往官方只读语料服务，2026-08-05）；
+      # lint:corpus-deid 收窄为守随包分发的能力 packs 与 skill 文档的去标识化，
+      # 不再依赖已迁走的语料目录，恢复常跑。
+      - name: Run corpus deid lint
+        if: ${{ always() }}
+        run: npm run lint:corpus-deid
       - name: Run craft-pack lint
         if: ${{ always() }}
         run: npm run lint:craft-pack

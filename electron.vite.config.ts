@@ -21,6 +21,7 @@ export default defineConfig({
   main: {
     define: {
       __NARRACAT_BUILD_TIME__: JSON.stringify(buildTime),
+      __NARRACAT_CORPUS_TOKEN__: JSON.stringify(process.env.NARRACAT_CORPUS_TOKEN ?? ''),
     },
     resolve: {
       alias: {

@@ -106,4 +106,13 @@ export interface EmbeddingHealthProbeResult {
   process: EmbeddingProbeProcessInfo
 }
 
+// ── 语料服务连通性体检（设置页体检卡，spec: docs/superpowers/specs/2026-08-05-corpus-server-design.md）─────
+// disabled=未配置凭证（fork 默认态，写作不注入范例）；local=维护者开发态本地语料目录；remote=打包发行态联网探测。
+export interface CorpusHealthProbeResult {
+  ok: boolean
+  mode: 'remote' | 'local' | 'disabled'
+  summary: string
+  totalEntries?: number
+}
+
 export type NarraCatArtifactKind = 'outline' | 'manuscript' | 'context-pack' | 'review' | 'deep-review'

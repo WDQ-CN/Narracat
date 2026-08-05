@@ -9,7 +9,7 @@ description: A real-novel writing style reference library backed by the novel_qu
 
 本 Skill 是**系统集成壳**——封装 `novel_query_style_reference` MCP 工具的调用说明，按手法+情感检索真人写作范例。
 
-不提供写作原则、不替代写作技艺指导。库含 58 部华语网文的 4141 个标注段落（去标识化：只给段落与机制注解、不含出处），覆盖受控 8 手法 × 8 情感。
+不提供写作原则、不替代写作技艺指导。库含 58 部华语网文的 4141 个标注段落，存于官方只读语料服务（不随包分发），工具联网检索；去标识化：只给段落与机制注解、不含出处。服务不可用或未配置凭证时返回空结果与提示，不影响写作流程。
 
 > 写作链消费的范例由上下文构建工具按 `technique × emotion` 机械选入，不经本 Skill。
 

@@ -6,6 +6,7 @@
  */
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
+import { resolveCorpusClientEnv } from '../engine/corpus-service.ts'
 import { resolveEmbeddingModelPath } from '../engine/embedding-model.ts'
 import { resolveNarraCatAgentCorePath } from '../engine/engine.ts'
 import { resolveMemoryEngineEntries } from '../engine/memory-core-entries.ts'
@@ -33,6 +34,10 @@ export function buildMemoryWorkerEnv(
   const embeddingModelPath = resolveEmbeddingModelPath({ appRoot: paths.appRoot, resourcesPath: paths.resourcesPath })
   if (embeddingModelPath) env.NARRACAT_EMBEDDING_MODEL_PATH = embeddingModelPath
   if (paths.userDataPath) env.NARRACAT_USER_PACKS_DIR = userPacksDir(paths.userDataPath)
+  const corpus = resolveCorpusClientEnv()
+  if (corpus.token) env.NARRACAT_CORPUS_TOKEN = corpus.token
+  if (corpus.url) env.NARRACAT_CORPUS_URL = corpus.url
+  if (corpus.dir) env.NARRACAT_CORPUS_DIR = corpus.dir
   // 聊天只读代理档（拆旧刀3）：滤网是进程级 env 语义，档位独立 worker，见 memory-host.ts 头注
   if (profile === 'chat-secret-filter') env.NARRACAT_CHAT_SECRET_FILTER = '1'
   return env

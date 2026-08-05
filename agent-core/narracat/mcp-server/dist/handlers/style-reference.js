@@ -16,11 +16,20 @@ export async function novelQueryStyleReference(args, _ctx) {
     if (emotion !== undefined && !Array.isArray(emotion)) {
         return singleError("emotion", "字符串数组（可省略）", JSON.stringify(emotion), "emotion 必须是数组，如 [\"紧张\"]；不需要过滤时省略该参数");
     }
-    const result = queryStyleReference({
+    const result = await queryStyleReference({
         technique: technique.map((t) => String(t)),
         emotion: emotion ? emotion.map((e) => String(e)) : undefined,
         limit: limit !== undefined ? Number(limit) : undefined,
     });
+    if (result.unavailable) {
+        return {
+            ok: true,
+            query: { technique, emotion: emotion ?? [] },
+            results: [],
+            total_matches: 0,
+            note: "范例服务暂不可用（离线、未配置凭证或服务异常），稍后可重试",
+        };
+    }
     return {
         ok: true,
         query: {

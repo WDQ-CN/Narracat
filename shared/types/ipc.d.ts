@@ -12,6 +12,7 @@ import type {
 } from './agent'
 import type { AgentRunRequest, AgentRunStarted } from './agent-run'
 import type {
+  CorpusHealthProbeResult,
   EmbeddingHealthProbeResult,
   NarraCatAgentCoreDiagnostics,
 } from './narracat'
@@ -105,6 +106,7 @@ export type {
 } from './agent'
 export type { AgentRunRequest, AgentRunStarted } from './agent-run'
 export type {
+  CorpusHealthProbeResult,
   EmbeddingHealthProbeResult,
   EmbeddingModelSource,
   EmbeddingSelfTestReport,
@@ -437,6 +439,7 @@ export interface ElectronApi {
   }) => Promise<ChapterCapabilityReceiptData | null>
   getPlanningCapabilityReceipts: (input: { projectPath: string }) => Promise<PlanningCapabilityReceiptData[]>
   runEmbeddingHealthProbe: () => Promise<EmbeddingHealthProbeResult>
+  runCorpusHealthProbe: () => Promise<CorpusHealthProbeResult>
   listResultNotifications: () => Promise<ResultNotificationList>
   upsertResultNotification: (notification: ResultNotification) => Promise<ResultNotificationList>
   markResultNotificationRead: (id: string) => Promise<ResultNotificationList>

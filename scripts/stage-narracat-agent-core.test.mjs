@@ -27,9 +27,8 @@ describe('NarraCat Agent Core 打包白名单', () => {
       'hooks/hooks.json',
       'hooks/scripts/check-chapter-wordcount.sh',
       'skills/novel-web-craft/SKILL.md',
-      // ②语料：内测短摘录照留（ADR-0026），运行时由 MCP 检索
-      'skills/novel-style-reference/references/corpus/extracts/斩神-extracts.json',
-      'skills/novel-style-reference/references/corpus/index.json',
+      // 真人范例语料已迁往官方只读语料服务 narracat-corpus-service，不再随包分发（2026-08-05）
+      'skills/novel-style-reference/SKILL.md',
       'docs/contracts/world-guided.md',
       'mcp-server/package.json',
       'mcp-server/dist/index.js',

@@ -6,7 +6,6 @@
  */
 
 import { readFileSync, readdirSync, existsSync } from "fs";
-import { fileURLToPath } from "url";
 import path from "path";
 
 // ============================================================
@@ -46,43 +45,28 @@ export interface StyleReferenceQuery {
 // 语料库加载（模块级缓存，进程内只加载一次）
 // ============================================================
 
-let corpusEntries: StyleReferenceEntry[] | null = null;
+const entriesByDir = new Map<string, StyleReferenceEntry[]>();
 
 /**
- * 解析语料库目录路径（相对于编译后的 dist/）
- * dist/ → ../../skills/novel-style-reference/references/corpus/extracts/
+ * 从 JSON 文件加载指定目录下的所有语料条目（按目录路径缓存，进程内每个目录只加载一次）
  */
-function resolveCorpusDir(): string {
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  return path.resolve(
-    __dirname,
-    "../../skills/novel-style-reference/references/corpus/extracts",
-  );
-}
+function loadEntriesFromDir(dir: string): StyleReferenceEntry[] {
+  const cached = entriesByDir.get(dir);
+  if (cached !== undefined) return cached;
 
-/**
- * 从 JSON 文件加载所有语料条目
- */
-function loadAllEntries(): StyleReferenceEntry[] {
-  if (corpusEntries !== null) return corpusEntries;
-
-  const corpusDir = resolveCorpusDir();
-
-  if (!existsSync(corpusDir)) {
-    console.error(
-      `[NovelMemory] Style reference corpus not found at: ${corpusDir}`,
-    );
-    corpusEntries = [];
-    return corpusEntries;
+  if (!existsSync(dir)) {
+    console.error(`[NovelMemory] Style reference corpus not found at: ${dir}`);
+    entriesByDir.set(dir, []);
+    return [];
   }
 
-  const files = readdirSync(corpusDir).filter((f) => f.endsWith(".json"));
+  const files = readdirSync(dir).filter((f) => f.endsWith(".json"));
   const entries: StyleReferenceEntry[] = [];
 
   for (const file of files) {
     try {
       const data: CorpusFile = JSON.parse(
-        readFileSync(path.join(corpusDir, file), "utf-8"),
+        readFileSync(path.join(dir, file), "utf-8"),
       );
       for (const extract of data.extracts) {
         entries.push({
@@ -105,7 +89,7 @@ function loadAllEntries(): StyleReferenceEntry[] {
   console.error(
     `[NovelMemory] Loaded ${entries.length} style reference entries from ${files.length} files`,
   );
-  corpusEntries = entries;
+  entriesByDir.set(dir, entries);
   return entries;
 }
 
@@ -201,12 +185,12 @@ export function detectChapterEmotions(text: string): string[] {
  * 章号确定性轮换、优先不同作品。情绪匹配是档内偏好非硬过滤——探不到/探错最坏丢掉情绪
  * 加权、绝不破坏画面感底线；chapterEmotions 为空时行为与历史完全一致。无语料返回空数组。
  */
-export function selectStyleExamples(
+export function selectStyleExamplesFrom(
+  entries: StyleReferenceEntry[],
   chapter: number,
   limit = 3,
   chapterEmotions: string[] = [],
 ): StyleExampleForPack[] {
-  const entries = loadAllEntries();
   const filtered = entries.filter(
     (e) => !isPayoffCoolingAnnotation(e.annotation),
   );
@@ -266,10 +250,10 @@ export function selectStyleExamples(
 /**
  * 按 technique + emotion 组合查询真人写作范例
  */
-export function queryStyleReference(
+export function queryStyleReferenceFrom(
+  entries: StyleReferenceEntry[],
   query: StyleReferenceQuery,
 ): { results: StyleReferenceEntry[]; total_matches: number } {
-  const entries = loadAllEntries();
   const limit = query.limit ?? 3;
   const effectiveLimit = Math.min(Math.max(1, limit), 8);
 
@@ -318,4 +302,163 @@ export function queryStyleReference(
     results: topResults,
     total_matches: totalMatches,
   };
+}
+
+// ============================================================
+// 三态源判定（remote / local / disabled，语料已迁服务端 Cloudflare Worker）
+// ============================================================
+
+const DEFAULT_CORPUS_URL = "https://corpus.narracat.com";
+const FETCH_TIMEOUT_MS = 4000;
+
+export type CorpusSource =
+  | { mode: "local"; dir: string }
+  | { mode: "remote"; url: string; token: string }
+  | { mode: "disabled" };
+
+/**
+ * 判定本次语料源：本地目录（dev/内部）> 远程服务（NARRACAT_CORPUS_TOKEN）> disabled（fork 默认态）。
+ */
+export function resolveCorpusSource(
+  env: NodeJS.ProcessEnv = process.env,
+): CorpusSource {
+  const dir = env.NARRACAT_CORPUS_DIR?.trim();
+  if (dir) return { mode: "local", dir };
+  const token = env.NARRACAT_CORPUS_TOKEN?.trim();
+  if (token) {
+    return {
+      mode: "remote",
+      url: env.NARRACAT_CORPUS_URL?.trim() || DEFAULT_CORPUS_URL,
+      token,
+    };
+  }
+  return { mode: "disabled" };
+}
+
+// 远程结果进程内缓存：只缓存成功响应，失败/超时不缓存（下次照常重试，fail-open）。
+const remoteCache = new Map<string, unknown>();
+
+/** 测试专用：清空目录加载缓存与远程结果缓存，隔离用例。 */
+export function __resetCorpusCachesForTest(): void {
+  remoteCache.clear();
+  entriesByDir.clear();
+}
+
+/** postCorpusApi 对 HTTP 400（入参越界）的专用哨兵：区分"客户端参数不合法"与"服务不可用"。 */
+interface CorpusApiBadRequest {
+  badRequest: true;
+}
+
+function isCorpusApiBadRequest(v: unknown): v is CorpusApiBadRequest {
+  return typeof v === "object" && v !== null && (v as { badRequest?: unknown }).badRequest === true;
+}
+
+async function postCorpusApi(
+  path: string,
+  body: unknown,
+  source: { url: string; token: string },
+): Promise<unknown | null | CorpusApiBadRequest> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const baseUrl = source.url.replace(/\/+$/, ""); // 防尾斜杠导致 `//v1/...` 404 静默降级
+    const response = await fetch(`${baseUrl}${path}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${source.token}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    // 400 = 入参越界，是客户端可预期的正常空结果，不是"服务不可用"（spec §6）。
+    if (response.status === 400) return { badRequest: true };
+    if (!response.ok) return null;
+    return (await response.json()) as unknown;
+  } catch {
+    return null; // 断网/超时/解析失败 → fail-open，写作不阻断
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ============================================================
+// 公开接口：按三态源路由（disabled 直接短路 / local 走 fixture 或本地目录 /
+// remote 打 Cloudflare Worker，成功才缓存、失败 fail-open 不缓存）
+// ============================================================
+
+/**
+ * 为 WritingContextPack 机械选取 2-3 段真人范例（带机制注解）。选样口径见
+ * `selectStyleExamplesFrom`；此处只负责三态源路由与远程缓存。
+ */
+export async function selectStyleExamples(
+  chapter: number,
+  limit = 3,
+  chapterEmotions: string[] = [],
+): Promise<StyleExampleForPack[]> {
+  const source = resolveCorpusSource();
+  if (source.mode === "disabled") return [];
+  if (source.mode === "local") {
+    return selectStyleExamplesFrom(
+      loadEntriesFromDir(source.dir),
+      chapter,
+      limit,
+      chapterEmotions,
+    );
+  }
+  const key = `select:${chapter}:${limit}:${[...chapterEmotions].sort().join(",")}`;
+  const cached = remoteCache.get(key);
+  if (cached) return cached as StyleExampleForPack[];
+  const apiResp = await postCorpusApi(
+    "/v1/select-examples",
+    { chapter, limit, emotions: chapterEmotions },
+    source,
+  );
+  if (isCorpusApiBadRequest(apiResp)) return []; // 入参越界：按空处理，不缓存
+  const resp = apiResp as { ok?: boolean; examples?: StyleExampleForPack[] } | null;
+  if (!resp?.ok || !Array.isArray(resp.examples)) return []; // 失败不缓存
+  remoteCache.set(key, resp.examples);
+  return resp.examples;
+}
+
+export interface StyleReferenceQueryResult {
+  results: StyleReferenceEntry[];
+  total_matches: number;
+  unavailable?: boolean;
+}
+
+/**
+ * 按 technique + emotion 组合查询真人写作范例；三态源路由，远程失败/disabled
+ * 时返回 `unavailable: true`（供调用方区分"零匹配"与"服务不可用"）。
+ */
+export async function queryStyleReference(
+  query: StyleReferenceQuery,
+): Promise<StyleReferenceQueryResult> {
+  const source = resolveCorpusSource();
+  if (source.mode === "disabled") {
+    return { results: [], total_matches: 0, unavailable: true };
+  }
+  if (source.mode === "local") {
+    return queryStyleReferenceFrom(loadEntriesFromDir(source.dir), query);
+  }
+  const key = `query:${[...query.technique].sort().join(",")}:${[...(query.emotion ?? [])].sort().join(",")}:${query.limit ?? 3}`;
+  const cached = remoteCache.get(key);
+  if (cached) return cached as StyleReferenceQueryResult;
+  const apiResp = await postCorpusApi("/v1/query", query, source);
+  if (isCorpusApiBadRequest(apiResp)) {
+    // 入参越界：正常空结果，不是"服务不可用"，不给 unavailable 文案误导重试。
+    return { results: [], total_matches: 0 };
+  }
+  const resp = apiResp as
+    | { ok?: boolean; results?: StyleReferenceEntry[]; total_matches?: number }
+    | null;
+  if (!resp?.ok || !Array.isArray(resp.results)) {
+    return { results: [], total_matches: 0, unavailable: true }; // 失败不缓存
+  }
+  const result = {
+    results: resp.results,
+    total_matches: resp.total_matches ?? resp.results.length,
+  };
+  remoteCache.set(key, result);
+  return result;
 }

@@ -44,11 +44,42 @@ export declare function detectChapterEmotions(text: string): string[];
  * 章号确定性轮换、优先不同作品。情绪匹配是档内偏好非硬过滤——探不到/探错最坏丢掉情绪
  * 加权、绝不破坏画面感底线；chapterEmotions 为空时行为与历史完全一致。无语料返回空数组。
  */
-export declare function selectStyleExamples(chapter: number, limit?: number, chapterEmotions?: string[]): StyleExampleForPack[];
+export declare function selectStyleExamplesFrom(entries: StyleReferenceEntry[], chapter: number, limit?: number, chapterEmotions?: string[]): StyleExampleForPack[];
 /**
  * 按 technique + emotion 组合查询真人写作范例
  */
-export declare function queryStyleReference(query: StyleReferenceQuery): {
+export declare function queryStyleReferenceFrom(entries: StyleReferenceEntry[], query: StyleReferenceQuery): {
     results: StyleReferenceEntry[];
     total_matches: number;
 };
+export type CorpusSource = {
+    mode: "local";
+    dir: string;
+} | {
+    mode: "remote";
+    url: string;
+    token: string;
+} | {
+    mode: "disabled";
+};
+/**
+ * 判定本次语料源：本地目录（dev/内部）> 远程服务（NARRACAT_CORPUS_TOKEN）> disabled（fork 默认态）。
+ */
+export declare function resolveCorpusSource(env?: NodeJS.ProcessEnv): CorpusSource;
+/** 测试专用：清空目录加载缓存与远程结果缓存，隔离用例。 */
+export declare function __resetCorpusCachesForTest(): void;
+/**
+ * 为 WritingContextPack 机械选取 2-3 段真人范例（带机制注解）。选样口径见
+ * `selectStyleExamplesFrom`；此处只负责三态源路由与远程缓存。
+ */
+export declare function selectStyleExamples(chapter: number, limit?: number, chapterEmotions?: string[]): Promise<StyleExampleForPack[]>;
+export interface StyleReferenceQueryResult {
+    results: StyleReferenceEntry[];
+    total_matches: number;
+    unavailable?: boolean;
+}
+/**
+ * 按 technique + emotion 组合查询真人写作范例；三态源路由，远程失败/disabled
+ * 时返回 `unavailable: true`（供调用方区分"零匹配"与"服务不可用"）。
+ */
+export declare function queryStyleReference(query: StyleReferenceQuery): Promise<StyleReferenceQueryResult>;

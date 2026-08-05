@@ -29,7 +29,8 @@ export const PRUNED_MCP_NODE_MODULE_DIR_NAMES = new Set([
 // 运行时真正引用的内部目录（白名单根）。审计来源：
 // - 引擎诊断：narracat.manifest.json（自有契约 SSOT，App 发现探针）
 //   + agents / commands / skills / schemas / templates / hooks
-// - 运行时 prompt `${CLAUDE_PLUGIN_ROOT}/` 引用：docs/contracts、templates、skills/*/references（含 corpus）、hooks/scripts
+// - 运行时 prompt `${CLAUDE_PLUGIN_ROOT}/` 引用：docs/contracts、templates、skills/*/references、hooks/scripts
+//   （真人范例语料已迁往官方只读语料服务 narracat-corpus-service，不再随包分发，2026-08-05）
 // - NovelMemory MCP 运行：mcp-server/dist + mcp-server/node_modules（生产依赖，prepare 已 prune）
 // - 能力包发现：pack-resolver 按 dist/packs/pack-resolver.js 的相对路径回溯到 agent-core/narracat/packs
 //   （官方基础包 packs/official-base/pack.json，B2 第一刀，ADR-0034）
@@ -177,7 +178,6 @@ export async function verifyStagedAgentCore(destination) {
     'narracat.manifest.json',
     join('mcp-server', 'dist', 'index.js'),
     join('docs', 'contracts', 'world-guided.md'),
-    join('skills', 'novel-style-reference', 'references', 'corpus', 'index.json'),
     join('templates', 'premise-template.md'),
     join('packs', 'official-base', 'pack.json'),
     join('mcp-server', 'authoring', 'typical-scenarios.json'),

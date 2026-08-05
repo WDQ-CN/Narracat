@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { resolveNarraCatAgentCorePath } from '../engine/engine.ts'
 import type { MemoryWorkerProcessLike } from './memory-host.ts'
 import { createMemoryHost } from './memory-host.ts'
+import { buildMemoryWorkerEnv } from './index.ts'
+import type { MemoryHostPaths } from './index.ts'
 
 interface FakeWorker extends MemoryWorkerProcessLike {
   sent: unknown[]
@@ -223,5 +226,47 @@ describe('createMemoryHost', () => {
     }
     host.shutdown()
     expect(killed).toBe(true)
+  })
+})
+
+describe('buildMemoryWorkerEnv 语料服务 env 透传', () => {
+  const paths: MemoryHostPaths = {
+    appRoot: process.cwd(),
+    agentCorePath: resolveNarraCatAgentCorePath({ appRoot: process.cwd() }),
+  }
+
+  // 宿主 shell/.env 若已配置 NARRACAT_CORPUS_*（.env.example 正引导维护者这么做），
+  // 会泄入本文件的 process.env 读取——stubEnv 覆盖不了「本来就有值」，须显式保存并清空。
+  const CORPUS_ENV_KEYS = ['NARRACAT_CORPUS_TOKEN', 'NARRACAT_CORPUS_URL', 'NARRACAT_CORPUS_DIR'] as const
+  const savedCorpusEnv: Partial<Record<(typeof CORPUS_ENV_KEYS)[number], string>> = {}
+
+  beforeEach(() => {
+    for (const key of CORPUS_ENV_KEYS) {
+      if (process.env[key] !== undefined) savedCorpusEnv[key] = process.env[key]
+      delete process.env[key]
+    }
+  })
+
+  afterEach(() => {
+    for (const key of CORPUS_ENV_KEYS) {
+      if (savedCorpusEnv[key] !== undefined) process.env[key] = savedCorpusEnv[key]
+      else delete process.env[key]
+      delete savedCorpusEnv[key]
+    }
+  })
+
+  it('语料服务 env 透传：有 token 时注入 NARRACAT_CORPUS_TOKEN，URL/DIR 跟随 env', () => {
+    process.env.NARRACAT_CORPUS_TOKEN = 'tok-x'
+    process.env.NARRACAT_CORPUS_URL = 'http://localhost:8787'
+    const env = buildMemoryWorkerEnv('/novels/a', paths)
+    expect(env.NARRACAT_CORPUS_TOKEN).toBe('tok-x')
+    expect(env.NARRACAT_CORPUS_URL).toBe('http://localhost:8787')
+  })
+
+  it('无 token 无 dir 时不注入语料 env（fork 默认态干净）', () => {
+    const env = buildMemoryWorkerEnv('/novels/a', paths)
+    expect(env.NARRACAT_CORPUS_TOKEN).toBeUndefined()
+    expect(env.NARRACAT_CORPUS_URL).toBeUndefined()
+    expect(env.NARRACAT_CORPUS_DIR).toBeUndefined()
   })
 })

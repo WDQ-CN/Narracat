@@ -35,11 +35,21 @@ export async function novelQueryStyleReference(
     );
   }
 
-  const result = queryStyleReference({
+  const result = await queryStyleReference({
     technique: technique.map((t) => String(t)),
     emotion: emotion ? emotion.map((e) => String(e)) : undefined,
     limit: limit !== undefined ? Number(limit) : undefined,
   });
+
+  if (result.unavailable) {
+    return {
+      ok: true,
+      query: { technique, emotion: emotion ?? [] },
+      results: [],
+      total_matches: 0,
+      note: "范例服务暂不可用（离线、未配置凭证或服务异常），稍后可重试",
+    };
+  }
 
   return {
     ok: true,

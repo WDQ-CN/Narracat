@@ -20,6 +20,9 @@ const FORBIDDEN_TRACKED_PREFIXES = [
   'scripts/corpus-factory/',
   'scripts/reader-sim/',
 ]
+// 运行时契约随包分发，非研发痕迹；与 export-public-repo.mjs 的 PUBLIC_EXEMPT 保持一致（2026-08-05 用户拍板豁免）。
+// 只收窄这一个子路径，守卫其余面（agent-core/narracat/docs/ 下 contracts/ 以外的一切）保持不变。
+const FORBIDDEN_EXEMPT_PREFIXES = ['agent-core/narracat/docs/contracts/']
 // 允许 pantsbang-yannik；禁其余个人标识
 const FORBIDDEN_CONTENT = ['/Users/yannik', 'yangnik528', 'yannikzhang528', '张子扬']
 
@@ -28,7 +31,8 @@ const tracked = () => execFileSync('git', ['-C', repoRoot, 'ls-files'], { encodi
 test(isPublicRepo ? '私有资产路径不被 git 追踪' : '(skip)', () => {
   if (!isPublicRepo) return
   const bad = tracked().filter((f) =>
-    FORBIDDEN_TRACKED_PREFIXES.some((p) => (p.endsWith('/') ? f.startsWith(p) : f === p)))
+    FORBIDDEN_TRACKED_PREFIXES.some((p) => (p.endsWith('/') ? f.startsWith(p) : f === p)) &&
+    !FORBIDDEN_EXEMPT_PREFIXES.some((p) => f.startsWith(p)))
   expect(bad).toEqual([])
 })
 

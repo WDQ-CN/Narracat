@@ -101,7 +101,7 @@ describe('packaged app.asar boundary audit', () => {
     const report = auditPackagedResourceEntries([
       'NarraCatAgentCore/.claude-plugin/plugin.json',
       'NarraCatAgentCore/commands/write.md',
-      'NarraCatAgentCore/skills/novel-style-reference/references/corpus/index.json',
+      'NarraCatAgentCore/skills/novel-style-reference/SKILL.md',
       'NarraCatAgentCore/docs/contracts/world-guided.md',
       'NarraCatAgentCore/mcp-server/dist/index.js',
       'NarraCatAgentCore/mcp-server/node_modules/onnxruntime-node/package.json',

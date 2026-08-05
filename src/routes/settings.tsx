@@ -35,6 +35,7 @@ import {
   getConfig,
   getNarraCatDiagnostics,
   listProviderModels,
+  runCorpusHealthProbe,
   runEmbeddingHealthProbe,
   readWorkLocation,
   saveConfig,
@@ -51,6 +52,7 @@ import { POOL_DEFAULT_FIELDS } from '@shared/types/config'
 import type {
   AppConfig,
   ConnectionTestResult,
+  CorpusHealthProbeResult,
   EmbeddingHealthProbeResult,
   ProviderId,
 } from '@shared/types/ipc'
@@ -212,6 +214,9 @@ export function SettingsRoute() {
   const [embeddingProbe, setEmbeddingProbe] = useState<EmbeddingHealthProbeResult | null>(null)
   const [embeddingProbeRunning, setEmbeddingProbeRunning] = useState(false)
   const [embeddingProbeStatus, setEmbeddingProbeStatus] = useState<string | null>(null)
+  const [corpusProbe, setCorpusProbe] = useState<CorpusHealthProbeResult | null>(null)
+  const [corpusProbeRunning, setCorpusProbeRunning] = useState(false)
+  const [corpusProbeStatus, setCorpusProbeStatus] = useState<string | null>(null)
   // 二级页（渠道详情）状态：切换 provider 时重置，避免上一个渠道的拉取结果/输入残留串到下一个渠道。
   const [fetchedModels, setFetchedModels] = useState<string[] | null>(null)
   const [fetchingModels, setFetchingModels] = useState(false)
@@ -497,7 +502,29 @@ export function SettingsRoute() {
     }
   }
 
-  const busy = loadingConfig || savingConfig || savingKey || testing || embeddingProbeRunning
+  async function onRunCorpusProbe() {
+    setCorpusProbeRunning(true)
+    setCorpusProbeStatus(null)
+    try {
+      const result = await runCorpusHealthProbe()
+      setCorpusProbe(result)
+      setCorpusProbeStatus(result.summary)
+      if (result.ok) {
+        toast.success('语料服务连通')
+      } else {
+        toast.error(result.summary)
+      }
+    } catch (error) {
+      const message = (error as Error).message
+      setCorpusProbeStatus(message)
+      setCorpusProbe(null)
+      toast.error(message)
+    } finally {
+      setCorpusProbeRunning(false)
+    }
+  }
+
+  const busy = loadingConfig || savingConfig || savingKey || testing || embeddingProbeRunning || corpusProbeRunning
   const statusText = status ?? ''
   const activeSectionId = readSettingsSectionId(searchParams)
   const activeSection = SETTINGS_SECTIONS.find((section) => section.id === activeSectionId) ?? SETTINGS_SECTIONS[0]
@@ -884,6 +911,40 @@ export function SettingsRoute() {
                               onClick={onRunEmbeddingProbe}
                             >
                               {embeddingProbeRunning ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                              ) : (
+                                <Activity className="size-3.5" />
+                              )}
+                              检测
+                            </Button>
+                          </SettingsActionRow>
+                          <SettingsRow
+                            title="语料服务连通"
+                            description="检查真人范例语料服务是否可达；不可达时写作可正常进行，仅暂不注入范例。"
+                          >
+                            <div
+                              className={`text-right text-xs font-medium ${
+                                corpusProbe
+                                  ? corpusProbe.ok
+                                    ? 'text-foreground'
+                                    : 'text-destructive'
+                                  : 'text-muted-foreground'
+                              }`}
+                            >
+                              {corpusProbe?.summary ?? '未运行'}
+                            </div>
+                          </SettingsRow>
+                          <SettingsActionRow
+                            status={corpusProbeStatus ?? '联网探测语料服务（不上传任何小说内容）。'}
+                          >
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              disabled={busy}
+                              onClick={onRunCorpusProbe}
+                            >
+                              {corpusProbeRunning ? (
                                 <Loader2 className="size-3.5 animate-spin" />
                               ) : (
                                 <Activity className="size-3.5" />

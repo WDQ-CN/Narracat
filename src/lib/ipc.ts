@@ -17,6 +17,7 @@ import type {
   CharacterChatUserMode,
   CharacterContactList,
   ConnectionTestResult,
+  CorpusHealthProbeResult,
   CreatedNovelProject,
   CreateNovelProjectBackupDialogResult,
   CreateNovelProjectInput,
@@ -164,6 +165,10 @@ export function readUserSkillBody(input: { id: string }): Promise<string> {
 
 export function runEmbeddingHealthProbe(): Promise<EmbeddingHealthProbeResult> {
   return window.electron.runEmbeddingHealthProbe()
+}
+
+export function runCorpusHealthProbe(): Promise<CorpusHealthProbeResult> {
+  return window.electron.runCorpusHealthProbe()
 }
 
 export function listResultNotifications(): Promise<ResultNotificationList> {
