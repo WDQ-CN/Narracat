@@ -60,6 +60,7 @@ describe('workbench navigation model', () => {
     expect(resolveWorkbenchSectionId(null)).toBe('blueprint')
     expect(resolveWorkbenchSectionId('chat')).toBe('chat')
     expect(resolveWorkbenchSectionId('packs')).toBe('packs')
+    expect(resolveWorkbenchSectionId('memory-graph')).toBe('memory-graph')
   })
 
   test('builds status, reference works, settings, blueprint, packs, and chat primary sections in sidebar order', () => {
@@ -70,6 +71,7 @@ describe('workbench navigation model', () => {
       { id: 'blueprint', title: '小说大纲', pending: true, defaultTabId: 'master-outline' },
       { id: 'packs', title: '能力包', pending: false, defaultTabId: null },
       { id: 'chat', title: '唠个嗑', pending: false, defaultTabId: null },
+      { id: 'memory-graph', title: '记忆星图', pending: false, defaultTabId: null },
     ])
   })
 
@@ -81,8 +83,13 @@ describe('workbench navigation model', () => {
     expect(getWorkbenchTabs(project, 'packs')).toEqual([])
   })
 
+  test('记忆星图 board has no per-object tabs', () => {
+    expect(getWorkbenchTabs(project, 'memory-graph')).toEqual([])
+  })
+
   test('marks sections pending only when one of its tabs is missing', () => {
     expect(getWorkbenchPrimarySections(completeProject()).map((section) => section.pending)).toEqual([
+      false,
       false,
       false,
       false,
@@ -157,6 +164,7 @@ describe('workbench navigation model', () => {
       { id: 'blueprint', title: '小说大纲', pending: false, defaultTabId: 'master-outline' },
       { id: 'packs', title: '能力包', pending: false, defaultTabId: null },
       { id: 'chat', title: '唠个嗑', pending: false, defaultTabId: null },
+      { id: 'memory-graph', title: '记忆星图', pending: false, defaultTabId: null },
     ])
     expect(getWorkbenchTabs(detail, 'reference-works').map((tab) => tab.id)).toEqual(['references'])
     expect(getWorkbenchTabs(detail, 'blueprint').map((tab) => tab.id)).toEqual([

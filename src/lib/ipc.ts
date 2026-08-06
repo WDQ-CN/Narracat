@@ -67,6 +67,7 @@ import type {
 import type { AgentQuestionAnswer } from '@/types/agent'
 import type { AgentSkillMount, CommitUserSkillResult, PreviewUserSkillResult, UserSkill } from '@shared/types/skill-mount'
 import type { CharacterStateSnapshot } from '@shared/types/character-state'
+import type { MemoryGraphSnapshot } from '@shared/types/memory-graph'
 import type {
   PlannedStateCounts,
   PlannedStateReadResult,
@@ -255,6 +256,10 @@ export function readPlannedState(input: ReadPlannedStateInput): Promise<PlannedS
 
 export function readPlannedStateCounts(input: ReadPlannedStateCountsInput): Promise<PlannedStateCounts> {
   return window.electron.readPlannedStateCounts(input)
+}
+
+export function readMemoryGraph(input: { projectPath: string }): Promise<MemoryGraphSnapshot> {
+  return window.electron.readMemoryGraph(input)
 }
 
 export function enrichCharacterStatuses(input: {

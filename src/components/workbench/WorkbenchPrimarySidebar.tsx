@@ -15,6 +15,7 @@ import {
   NotebookTabs,
   Package,
   Settings,
+  Waypoints,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { GlobalNotificationBell } from '@/components/notifications/GlobalNotificationBell'
@@ -497,10 +498,20 @@ export function WorkbenchPrimarySidebar({
                         className="size-4 shrink-0 text-hint-foreground"
                         data-workbench-primary-section-icon="packs"
                       />
-                    ) : (
+                    ) : section.id === 'memory-graph' ? (
+                      <Waypoints
+                        className="size-4 shrink-0 text-hint-foreground"
+                        data-workbench-primary-section-icon="memory-graph"
+                      />
+                    ) : section.id === 'blueprint' ? (
                       <BookOpen
                         className="size-4 shrink-0 text-hint-foreground"
                         data-workbench-primary-section-icon="blueprint"
+                      />
+                    ) : (
+                      <Settings
+                        className="size-4 shrink-0 text-hint-foreground"
+                        data-workbench-primary-section-icon="unknown"
                       />
                     )}
                     <span className="truncate">{section.title}</span>

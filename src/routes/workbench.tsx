@@ -25,6 +25,7 @@ import {
   WORKBENCH_LAYOUT_STORAGE_KEY,
   type WorkbenchPanelLayout,
   WORKBENCH_STAGE_SINGLE_COLUMN_TEMPLATE,
+  isFullWidthWorkbenchSection,
 } from '@/lib/workbench-layout'
 import { getWorkbenchTabs } from '@/lib/workbench-navigation'
 import type { WorkbenchPrimarySectionId } from '@/lib/workbench-navigation'
@@ -103,8 +104,8 @@ function applyWorkbenchPanelLayoutToDom(container: HTMLElement, layout: Workbenc
   const stageGrid = container.querySelector<HTMLElement>('[data-workbench-stage-grid="true"]')
   if (stageGrid) {
     const stage = stageGrid.closest<HTMLElement>('[data-workbench-stage="true"]')
-    const isCharacterChatSection = stage?.dataset.sectionId === 'chat'
-    stageGrid.style.gridTemplateColumns = isCharacterChatSection ? WORKBENCH_STAGE_SINGLE_COLUMN_TEMPLATE : templates.stage
+    const fullWidthSection = isFullWidthWorkbenchSection(stage?.dataset.sectionId)
+    stageGrid.style.gridTemplateColumns = fullWidthSection ? WORKBENCH_STAGE_SINGLE_COLUMN_TEMPLATE : templates.stage
     stageGrid.style.gridTemplateRows = WORKBENCH_GRID_TEMPLATE_ROWS
   }
 }

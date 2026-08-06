@@ -42,6 +42,19 @@ export const WORKBENCH_PANEL_WIDTHS = {
 export const WORKBENCH_GRID_TEMPLATE_ROWS = 'minmax(0, 1fr)'
 export const WORKBENCH_STAGE_SINGLE_COLUMN_TEMPLATE = 'minmax(0, 1fr)'
 
+/**
+ * 独占整个舞台宽度、不并排 Agent 对话的板块。
+ *
+ * 唠个嗑是沉浸式对话，记忆星图是全景图形——两者都需要横向空间，右侧再挤一栏对话既没用
+ * 也压缩了主体。判定收在这里是因为舞台布局有两条写入路径（WorkbenchStage 的 React 渲染
+ * 与 workbench 路由拖拽时的直接改 style），以前各写各的字面量，加一个板块要改两处。
+ *
+ * 取 string 而非 WorkbenchPrimarySectionId：路由那条路径拿到的是 dataset 里的原始字符串。
+ */
+export function isFullWidthWorkbenchSection(sectionId: string | undefined): boolean {
+  return sectionId === 'chat' || sectionId === 'memory-graph'
+}
+
 const TOTAL_FIXED_NONCONTENT_WIDTH =
   WORKBENCH_PANEL_WIDTHS.handle + WORKBENCH_PANEL_WIDTHS.agentHandle + WORKBENCH_PANEL_WIDTHS.stageGutter
 

@@ -246,6 +246,7 @@ describe('WorkbenchPrimarySidebar', () => {
       '小说大纲待设定',
       '能力包',
       '唠个嗑',
+      '记忆星图',
     ])
     expect(html).toContain('data-workbench-primary-section-icon="status"')
     expect(html).toContain('data-workbench-primary-section-icon="reference-works"')
@@ -253,6 +254,9 @@ describe('WorkbenchPrimarySidebar', () => {
     expect(html).toContain('data-workbench-primary-section-icon="blueprint"')
     expect(html).toContain('data-workbench-primary-section-icon="packs"')
     expect(html).toContain('data-workbench-primary-section-icon="chat"')
+    expect(html).toContain('data-workbench-primary-section-icon="memory-graph"')
+    // 确保 blueprint 图标只在一个地方出现（不被其他板块误用）
+    expect((html.match(/data-workbench-primary-section-icon="blueprint"/g) ?? []).length).toBe(1)
     expect(primaryMenuHtml(html)).toContain('lucide-notebook-tabs')
     expect(primaryMenuHtml(html)).not.toContain('lucide-settings')
     expect(html).toContain('lucide-book-open')
@@ -284,6 +288,15 @@ describe('WorkbenchPrimarySidebar', () => {
     expect(html).not.toContain('已规划')
     expect(html).not.toContain('待正文')
     expect(html).not.toContain('写作中')
+    expect(primaryMenuTexts(html)).toEqual([
+      '状态',
+      '参考作品',
+      '设定集待设定',
+      '小说大纲待设定',
+      '能力包',
+      '唠个嗑',
+      '记忆星图',
+    ])
   })
 
   test('expands the selected chapter volume and keeps other volumes collapsed by default', () => {
@@ -516,6 +529,7 @@ describe('WorkbenchPrimarySidebar', () => {
       '小说大纲待设定',
       '能力包',
       '唠个嗑',
+      '记忆星图',
     ])
   })
 

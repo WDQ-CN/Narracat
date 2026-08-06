@@ -1,6 +1,6 @@
 import type { NovelProjectDetail, NovelWorkbenchTreeItem } from '@shared/types/novel'
 
-export type WorkbenchPrimarySectionId = 'status' | 'reference-works' | 'blueprint' | 'settings' | 'packs' | 'chat'
+export type WorkbenchPrimarySectionId = 'status' | 'reference-works' | 'blueprint' | 'settings' | 'packs' | 'chat' | 'memory-graph'
 
 export interface WorkbenchEmptyAction {
   label: string
@@ -31,6 +31,7 @@ export function resolveWorkbenchSectionId(value: string | null): WorkbenchPrimar
   if (normalized === 'settings') return 'settings'
   if (normalized === 'chat') return 'chat'
   if (normalized === 'packs') return 'packs'
+  if (normalized === 'memory-graph') return 'memory-graph'
   return 'blueprint'
 }
 
@@ -42,6 +43,7 @@ export function getWorkbenchPrimarySections(project: NovelProjectDetail): Workbe
     buildPrimarySection(project, 'blueprint', '小说大纲'),
     buildPrimarySection(project, 'packs', '能力包'),
     buildPrimarySection(project, 'chat', '唠个嗑'),
+    buildPrimarySection(project, 'memory-graph', '记忆星图'),
   ]
 }
 
@@ -49,8 +51,8 @@ export function getWorkbenchTabs(
   project: NovelProjectDetail,
   sectionId: WorkbenchPrimarySectionId,
 ): WorkbenchTabItem[] {
-  // 状态面板、能力包启用面板与唠个嗑都是独立板块，不走 per-object 标签/产物管线，故无 tab。
-  if (sectionId === 'status' || sectionId === 'chat' || sectionId === 'packs') return []
+  // 状态面板、能力包启用面板、唠个嗑与记忆星图都是独立板块，不走 per-object 标签/产物管线，故无 tab。
+  if (sectionId === 'status' || sectionId === 'chat' || sectionId === 'packs' || sectionId === 'memory-graph') return []
   if (sectionId === 'reference-works') return getReferenceWorksTabs(project)
   return sectionId === 'blueprint' ? getBlueprintTabs(project) : getSettingsTabs(project)
 }

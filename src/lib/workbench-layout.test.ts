@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   clampWorkbenchPanelLayout,
   createWorkbenchPanelDragSession,
+  isFullWidthWorkbenchSection,
   resizeWorkbenchPanelLayout,
   workbenchPanelGridTemplates,
   workbenchGridTemplateColumns,
@@ -103,5 +104,24 @@ describe('workbench panel layout', () => {
     ])
     expect(committed).toEqual([{ sidebar: 260, agent: 640 }])
     expect(callbacks.size).toBe(0)
+  })
+})
+
+describe('isFullWidthWorkbenchSection', () => {
+  test('gives the whole stage to 唠个嗑 and 记忆星图', () => {
+    // 这两块都要横向空间：一个是沉浸式对话，一个是全景图形，右侧再挤一栏对话既没用也压缩主体
+    expect(isFullWidthWorkbenchSection('chat')).toBe(true)
+    expect(isFullWidthWorkbenchSection('memory-graph')).toBe(true)
+  })
+
+  test('keeps the Agent column for every other section', () => {
+    for (const sectionId of ['status', 'reference-works', 'settings', 'blueprint', 'packs']) {
+      expect(isFullWidthWorkbenchSection(sectionId)).toBe(false)
+    }
+  })
+
+  test('treats a missing section id as not full width', () => {
+    // 路由那条路径读的是 dataset，可能拿不到值——不能因此误判成满宽把 Agent 栏吞掉
+    expect(isFullWidthWorkbenchSection(undefined)).toBe(false)
   })
 })

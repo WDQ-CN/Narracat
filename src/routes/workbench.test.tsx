@@ -27,12 +27,14 @@ describe('WorkbenchRoute', () => {
     expect(source).toContain('onAgentResizeStart={startAgentResize}')
   })
 
-  test('does not let resize sync restore the Agent columns for character chat', () => {
+  test('does not let resize sync restore the Agent columns for full-width sections', () => {
+    // 拖拽同步是舞台布局的第二条写入路径（直接改 style），漏了它会在用户拖分隔条时
+    // 把满宽板块的 Agent 栏塞回来。判定统一走 isFullWidthWorkbenchSection，不再各写字面量。
     const source = readFileSync(fileURLToPath(new URL('./workbench.tsx', import.meta.url)), 'utf-8')
 
-    expect(source).toContain("stage?.dataset.sectionId === 'chat'")
+    expect(source).toContain('isFullWidthWorkbenchSection(stage?.dataset.sectionId)')
     expect(source).toContain('WORKBENCH_STAGE_SINGLE_COLUMN_TEMPLATE')
-    expect(source).toContain('isCharacterChatSection ? WORKBENCH_STAGE_SINGLE_COLUMN_TEMPLATE : templates.stage')
+    expect(source).toContain('fullWidthSection ? WORKBENCH_STAGE_SINGLE_COLUMN_TEMPLATE : templates.stage')
   })
 
   test('persists the resolved work location and routes chapter subviews through the URL', () => {

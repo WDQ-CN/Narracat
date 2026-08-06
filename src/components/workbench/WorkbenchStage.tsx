@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { AgentPanel } from './AgentPanel'
 import { CapabilityPackPanel } from './CapabilityPackPanel'
 import { CharacterChatBoard } from './CharacterChatBoard'
+import { MemoryGraphView } from './MemoryGraphView'
 import { resolveWorkbenchContentSelection, WorkbenchContentView } from './WorkbenchContentView'
 import { WorkbenchStatusPanel } from './WorkbenchStatusPanel'
 import {
@@ -37,6 +38,7 @@ import {
   WORKBENCH_GRID_TEMPLATE_ROWS,
   WORKBENCH_PANEL_WIDTHS,
   WORKBENCH_STAGE_SINGLE_COLUMN_TEMPLATE,
+  isFullWidthWorkbenchSection,
 } from '@/lib/workbench-layout'
 import { buildWorkbenchTargetHref } from '@/lib/workbench-selection'
 import type { AgentComposerHandoff } from '@/types/agent'
@@ -79,7 +81,8 @@ export function WorkbenchStage({
     selectedObjectId,
     selectedTabId,
   })
-  const isCharacterChatSection = selectedSectionId === 'chat'
+  // 唠个嗑与记忆星图独占整个舞台：不并排 Agent 对话，也不留可拖的分隔手柄
+  const isFullWidthSection = isFullWidthWorkbenchSection(selectedSectionId)
   const defaultChapterView = resolveDefaultChapterView(selectedItem)
   const chapterView = selectedItem?.kind === 'chapter' ? (selectedChapterView ?? defaultChapterView) : defaultChapterView
   const isAgentBusy = Boolean(activeRun) || submitting
@@ -425,7 +428,7 @@ export function WorkbenchStage({
           className="grid h-full min-h-0"
           data-workbench-stage-grid="true"
           style={{
-            gridTemplateColumns: isCharacterChatSection
+            gridTemplateColumns: isFullWidthSection
               ? WORKBENCH_STAGE_SINGLE_COLUMN_TEMPLATE
               : workbenchStageGridTemplateColumns(agentWidth),
             gridTemplateRows: WORKBENCH_GRID_TEMPLATE_ROWS,
@@ -446,6 +449,8 @@ export function WorkbenchStage({
                   <CharacterChatBoard projectPath={project?.path ?? ''} />
                 ) : selectedSectionId === 'packs' ? (
                   <CapabilityPackPanel projectPath={project?.path ?? ''} />
+                ) : selectedSectionId === 'memory-graph' ? (
+                  <MemoryGraphView projectPath={project?.path ?? ''} />
                 ) : (
                   <WorkbenchContentView
                     agentThreadId={agentThreadId}
@@ -470,7 +475,7 @@ export function WorkbenchStage({
             </div>
           </div>
 
-          {isCharacterChatSection ? null : (
+          {isFullWidthSection ? null : (
             <>
               <div
                 className={WORKBENCH_RESIZE_HANDLE_CLASS}

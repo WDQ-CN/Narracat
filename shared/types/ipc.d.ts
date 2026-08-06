@@ -2,6 +2,7 @@
 // 实际实现在 electron/preload/index.cts。
 
 import type { AppConfig, ProviderId } from './config'
+import type { MemoryGraphSnapshot } from './memory-graph'
 import type { CardLintFinding } from '@shared/lib/capability-pack-lint'
 import type {
   AgentEventEnvelopeV1,
@@ -464,6 +465,7 @@ export interface ElectronApi {
   }) => Promise<CharacterStateSnapshot>
   readPlannedState: (input: ReadPlannedStateInput) => Promise<PlannedStateReadResult>
   readPlannedStateCounts: (input: ReadPlannedStateCountsInput) => Promise<PlannedStateCounts>
+  readMemoryGraph: (input: { projectPath: string }) => Promise<MemoryGraphSnapshot>
   enrichCharacterStatuses: (input: {
     projectPath: string
     characterUids: string[]

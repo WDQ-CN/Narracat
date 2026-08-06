@@ -79,6 +79,7 @@ const api = {
     ipcRenderer.invoke('novel:read-character-state', input),
   readPlannedState: (input: unknown) => ipcRenderer.invoke('novel:read-planned-state', input),
   readPlannedStateCounts: (input: unknown) => ipcRenderer.invoke('novel:read-planned-state-counts', input),
+  readMemoryGraph: (input: unknown) => ipcRenderer.invoke('novel:read-memory-graph', input),
   enrichCharacterStatuses: (input: { projectPath: string; characterUids: string[]; knowledgeBoundaryChapter: number | null }) =>
     ipcRenderer.invoke('novel:enrich-character-statuses', input),
   getNovelChapterArtifacts: (projectPath: string, chapterNumber: number, volumeNumber?: number) =>

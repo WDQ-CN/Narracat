@@ -78,6 +78,7 @@ import {
   readCharacterFuturePlans,
   readPlannedStateCounts,
 } from '../novel/planned-state-read.ts'
+import { readMemoryGraph } from '../novel/memory-graph.ts'
 import type { PlannedStateScope } from '@shared/types/planned-state'
 import { readCharacterStatusesViaEngine } from '../engine/novel-memory-mcp-client.ts'
 import { createNovelProject } from '../novel/novel-create.ts'
@@ -557,6 +558,13 @@ export function registerNovelIpcHandlers(): void {
     // 目录徽标消费：按章的 status='planned' 行计数
     const { projectPath } = readPlannedStateCountsInput(input)
     return readPlannedStateCounts({ projectPath, openMemoryDb: openMemoryDbReadonly })
+  })
+
+  ipcMain.handle('novel:read-memory-graph', async (_event, input: unknown) => {
+    // 记忆星图只读通道：直读 memory.db 聚合角色/事实点线，失败由读函数自身降级为空快照
+    const record = readInputRecord(input, '缺少记忆星图读取参数。')
+    const projectPath = readRequiredString(record, 'projectPath', '缺少项目路径。')
+    return readMemoryGraph({ projectPath, openMemoryDb: openMemoryDbReadonly })
   })
 
   ipcMain.handle('novel:enrich-character-statuses', async (_event, input: unknown) => {

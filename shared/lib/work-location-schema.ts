@@ -8,7 +8,7 @@ export type StoredWorkLocation =
       landing: 'workbench'
       novelId: string
       projectPath: string
-      sectionId: 'status' | 'reference-works' | 'blueprint' | 'settings' | 'packs' | 'chat'
+      sectionId: 'status' | 'reference-works' | 'blueprint' | 'settings' | 'packs' | 'chat' | 'memory-graph'
       tabId?: string
       objectId?: string
       chapter?: number
@@ -22,7 +22,8 @@ function isSectionId(value: unknown): value is Extract<StoredWorkLocation, { lan
     value === 'blueprint' ||
     value === 'settings' ||
     value === 'packs' ||
-    value === 'chat'
+    value === 'chat' ||
+    value === 'memory-graph'
   )
 }
 
