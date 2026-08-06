@@ -1,6 +1,6 @@
 <div align="center">
   
-<img width="1200" height="438" alt="image" src="https://github.com/user-attachments/assets/12e4883e-8a3d-4110-9578-2edc063f87aa" />
+<img width="2400" height="876" alt="image" src="https://github.com/user-attachments/assets/a02ae0ab-5a3a-4339-8a2b-2e6599853345" />
 
 # NarraCat 🐈‍⬛
 
@@ -24,10 +24,9 @@ NarraCat 让智能先理解你的所想，再协助构建世界观、推进剧�
 
 </div>
 
-<img width="1920" height="1130" alt="image" src="https://github.com/user-attachments/assets/8e5ed7c0-ac41-4800-adc4-547fe4e71d16" />
-<img width="1920" height="1130" alt="image" src="https://github.com/user-attachments/assets/7fe331e1-4678-42ef-a052-c6f282afc5a2" />
-<img width="1920" height="1130" alt="image" src="https://github.com/user-attachments/assets/a1e8e4d5-4ee7-4971-a546-89012026ebf2" />
-
+<img width="1920" height="1130" alt="image" src="https://github.com/user-attachments/assets/08e74a47-d7be-40f9-9d13-1a2ef467c6e5" />
+<img width="1920" height="1130" alt="image" src="https://github.com/user-attachments/assets/5453ab19-84c5-4dc8-886a-35d4ac48ea73" />
+<img width="1920" height="1130" alt="image" src="https://github.com/user-attachments/assets/5c2cac53-a400-44bb-b1bd-fd2f49334780" />
 
 <!-- screenshots:end -->
 
