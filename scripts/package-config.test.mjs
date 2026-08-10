@@ -45,12 +45,22 @@ describe('RC package configuration', () => {
 
     // 解析成 plist 结构而非字符串匹配 `<key>xxx</key>` 是否存在：字符串匹配抓不住值被误写成
     // `<false/>` 的情况——而这恰恰是「静默降级」本身，是这条测试要守住的东西。
-    const plistJson = execFileSync('plutil', ['-convert', 'json', '-o', '-', 'build/entitlements.mac.plist'], {
-      encoding: 'utf8',
-    })
-    const entitlements = JSON.parse(plistJson)
+    // 不用 `plutil`：它是 macOS 专有命令，本仓无 CI，但会单向同步到公开镜像仓，
+    // 那边 GitHub Actions 跑在 Linux 上，`plutil` 不存在会直接把这条测试打挂。
+    // entitlements plist 只是极简的 <key>/<true|false/> 对列表，用纯 JS 正则解析即可，
+    // 无需依赖任何平台专有工具。
+    const plistXml = readFileSync('build/entitlements.mac.plist', 'utf8')
+    const entitlements = {}
+    for (const match of plistXml.matchAll(/<key>([^<]+)<\/key>\s*<(true|false)\/>/g)) {
+      entitlements[match[1]] = match[2] === 'true'
+    }
     for (const key of required) {
       expect(entitlements[key]).toBe(true)
+    }
+    // 补一道 macOS-only 的 plutil -lint，兜住 plist 语法本身合法（非 darwin 显式跳过，
+    // 不在 Linux CI 上抛错）。
+    if (process.platform === 'darwin') {
+      execFileSync('plutil', ['-lint', 'build/entitlements.mac.plist'], { encoding: 'utf8' })
     }
     // 非 MAS 分发，不启用 App Sandbox（启用会连带需要一整套文件访问 entitlements）
     expect(Object.keys(entitlements)).not.toContain('com.apple.security.app-sandbox')
