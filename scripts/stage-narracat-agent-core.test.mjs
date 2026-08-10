@@ -5,11 +5,13 @@ import { join } from 'node:path'
 import { describe, expect, test } from 'bun:test'
 
 import {
+  assertBundledOnnxRuntimeNativeBinaryPresent,
   FORBIDDEN_RELATIVE_PATHS,
   findFirstStagedRuntimePayloadViolation,
   hasPrunedMcpNodeModuleDirectory,
   pruneStagedMcpRuntimePayload,
   shouldBundleAgentCorePath,
+  shouldPruneForeignPlatformBinary,
   shouldPruneMcpDistFile,
   shouldPruneMcpNodeModuleDirectory,
   shouldPruneMcpNodeModuleFile,
@@ -180,5 +182,84 @@ describe('NarraCat Agent Core 打包白名单', () => {
     } finally {
       await rm(destination, { recursive: true, force: true })
     }
+  })
+
+  test('只保留 darwin/arm64 的 onnxruntime 预编译二进制', () => {
+    const base = 'mcp-server/node_modules/onnxruntime-node/bin/napi-v3'
+
+    // 目标平台：整条路径放行
+    expect(shouldPruneForeignPlatformBinary(`${base}/darwin/arm64/onnxruntime_binding.node`)).toBe(false)
+    expect(shouldPruneForeignPlatformBinary(`${base}/darwin/arm64/libonnxruntime.1.21.0.dylib`)).toBe(false)
+    // 平台目录自身放行以便递归进去
+    expect(shouldPruneForeignPlatformBinary(`${base}/darwin`)).toBe(false)
+
+    // 非目标平台/架构：裁掉（含平台目录自身，整目录不拷）
+    expect(shouldPruneForeignPlatformBinary(`${base}/darwin/x64/onnxruntime_binding.node`)).toBe(true)
+    expect(shouldPruneForeignPlatformBinary(`${base}/linux`)).toBe(true)
+    expect(shouldPruneForeignPlatformBinary(`${base}/linux/x64/onnxruntime_binding.node`)).toBe(true)
+    expect(shouldPruneForeignPlatformBinary(`${base}/linux/arm64/onnxruntime_binding.node`)).toBe(true)
+    expect(shouldPruneForeignPlatformBinary(`${base}/win32`)).toBe(true)
+    expect(shouldPruneForeignPlatformBinary(`${base}/win32/x64/onnxruntime_binding.node`)).toBe(true)
+
+    // 不误伤其他包：同名目录段不构成匹配
+    expect(shouldPruneForeignPlatformBinary('mcp-server/node_modules/better-sqlite3/build/Release/better_sqlite3.node')).toBe(false)
+    expect(shouldPruneForeignPlatformBinary('mcp-server/node_modules/sqlite-vec-darwin-arm64/vec0.dylib')).toBe(false)
+    expect(shouldPruneForeignPlatformBinary('mcp-server/node_modules/@img/sharp-libvips-darwin-arm64/lib/libvips-cpp.8.17.3.dylib')).toBe(false)
+    expect(shouldPruneForeignPlatformBinary('skills/napi-v3/linux/notes.md')).toBe(false)
+  })
+
+  test('白名单谓词接入裁剪：非目标平台二进制不进打包产物', () => {
+    const base = 'mcp-server/node_modules/onnxruntime-node/bin/napi-v3'
+    expect(shouldBundleAgentCorePath(`${base}/darwin/arm64/onnxruntime_binding.node`)).toBe(true)
+    expect(shouldBundleAgentCorePath(`${base}/linux/x64/onnxruntime_binding.node`)).toBe(false)
+    expect(shouldBundleAgentCorePath(`${base}/win32/arm64/onnxruntime_binding.node`)).toBe(false)
+    expect(shouldBundleAgentCorePath(`${base}/darwin/x64/onnxruntime_binding.node`)).toBe(false)
+  })
+
+  describe('正向断言：暂存树必须真的留着 darwin/arm64 的 onnxruntime 二进制（防裁剪谓词未来静默失效）', () => {
+    const binaryDir = join(
+      'mcp-server',
+      'node_modules',
+      'onnxruntime-node',
+      'bin',
+      'napi-v3',
+      'darwin',
+      'arm64',
+    )
+
+    test('目录齐全（.node + .dylib）时不抛错', async () => {
+      const destination = await mkdtemp(join(tmpdir(), 'narracat-stage-onnx-present-'))
+      try {
+        await mkdir(join(destination, binaryDir), { recursive: true })
+        await writeFile(join(destination, binaryDir, 'onnxruntime_binding.node'), 'binary\n')
+        await writeFile(join(destination, binaryDir, 'libonnxruntime.1.21.0.dylib'), 'dylib\n')
+
+        await expect(assertBundledOnnxRuntimeNativeBinaryPresent(destination)).resolves.toBeUndefined()
+      } finally {
+        await rm(destination, { recursive: true, force: true })
+      }
+    })
+
+    test('目录整个缺失（如未来 ABI 目录名变更导致裁剪谓词误裁）时抛错，说明 embedding 会静默失效', async () => {
+      const destination = await mkdtemp(join(tmpdir(), 'narracat-stage-onnx-missing-dir-'))
+      try {
+        await expect(assertBundledOnnxRuntimeNativeBinaryPresent(destination)).rejects.toThrow(/静默失效/)
+      } finally {
+        await rm(destination, { recursive: true, force: true })
+      }
+    })
+
+    test('目录存在但缺 .node 或 .dylib（拷贝不全）时抛错', async () => {
+      const destination = await mkdtemp(join(tmpdir(), 'narracat-stage-onnx-incomplete-'))
+      try {
+        await mkdir(join(destination, binaryDir), { recursive: true })
+        await writeFile(join(destination, binaryDir, 'onnxruntime_binding.node'), 'binary\n')
+        // 故意不写 .dylib
+
+        await expect(assertBundledOnnxRuntimeNativeBinaryPresent(destination)).rejects.toThrow(/不完整/)
+      } finally {
+        await rm(destination, { recursive: true, force: true })
+      }
+    })
   })
 })

@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 
 const packageJson = JSON.parse(readFileSync('package.json', 'utf8'))
@@ -10,15 +11,49 @@ describe('RC package configuration', () => {
     expect(packageJson.build.appId).toBe('app.narracat.desktop')
   })
 
-  test('targets ad-hoc signed macOS arm64 DMG artifacts', () => {
+  test('targets Developer ID signed + notarized macOS arm64 DMG/ZIP artifacts', () => {
     expect(packageJson.scripts.package).toBe('node scripts/package-rc.mjs')
+    expect(packageJson.scripts['package:release']).toBe('node scripts/package-rc.mjs --notarize')
     expect(packageJson.build.artifactName).toBe('NarraCat-${version}-mac-${arch}.${ext}')
-    // ad-hoc 签名(非 null=完全不签):修复 identity:null 留下的坏 Electron 继承签名 → "已损坏"
-    // 无法右键打开的死局;ad-hoc 让签名有效(可被授权打开),非公证故仍需 Gatekeeper 授权教程(#352)。
-    expect(packageJson.build.mac.identity).toBe('-')
-    // 不开 hardened runtime:非公证 ad-hoc 分发避免跨机库校验拦截原生模块/headless node。
-    expect(packageJson.build.mac.hardenedRuntime).toBe(false)
-    expect(packageJson.build.mac.target).toEqual([{ target: 'dmg', arch: ['arm64'] }])
+    // 不再硬编码 identity：由 electron-builder 从 Keychain 解析 Developer ID Application。
+    // 缺证书时 electron-builder 只警告不报错，故打包链另设 check-signing-identity 硬闸（Task 2）。
+    expect(packageJson.build.mac.identity).toBeUndefined()
+    // 公证硬要求 hardened runtime；随之而来的 library validation 由 entitlements 关闭。
+    expect(packageJson.build.mac.hardenedRuntime).toBe(true)
+    // 主 bundle 与 helper 子进程共用同一份：非沙盒分发中二者所需豁免完全一致，
+    // 分成两个逐字节相同的文件只会漂移。helper 同样要 disable-library-validation——
+    // NovelMemory MCP 正是在子进程里 dlopen better_sqlite3.node 与 vec0.dylib。
+    expect(packageJson.build.mac.entitlements).toBe('build/entitlements.mac.plist')
+    expect(packageJson.build.mac.entitlementsInherit).toBe('build/entitlements.mac.plist')
+    // zip 是 electron-updater 在 macOS 上的更新载体（开源路线图④的前置）。
+    expect(packageJson.build.mac.target).toEqual([
+      { target: 'dmg', arch: ['arm64'] },
+      { target: 'zip', arch: ['arm64'] },
+    ])
+  })
+
+  test('entitlements 授予四项加固运行时豁免（缺一则原生库静默失效）', () => {
+    const required = [
+      // V8 JIT：Electron 20+ 在 arm64 上缺此项直接崩
+      'com.apple.security.cs.allow-jit',
+      'com.apple.security.cs.allow-unsigned-executable-memory',
+      // 关键项：放行 vec0.dylib / better_sqlite3.node / onnxruntime / sharp 的运行时加载
+      'com.apple.security.cs.disable-library-validation',
+      // 子进程以 ELECTRON_RUN_AS_NODE 启动 NovelMemory MCP 时需要
+      'com.apple.security.cs.allow-dyld-environment-variables',
+    ]
+
+    // 解析成 plist 结构而非字符串匹配 `<key>xxx</key>` 是否存在：字符串匹配抓不住值被误写成
+    // `<false/>` 的情况——而这恰恰是「静默降级」本身，是这条测试要守住的东西。
+    const plistJson = execFileSync('plutil', ['-convert', 'json', '-o', '-', 'build/entitlements.mac.plist'], {
+      encoding: 'utf8',
+    })
+    const entitlements = JSON.parse(plistJson)
+    for (const key of required) {
+      expect(entitlements[key]).toBe(true)
+    }
+    // 非 MAS 分发，不启用 App Sandbox（启用会连带需要一整套文件访问 entitlements）
+    expect(Object.keys(entitlements)).not.toContain('com.apple.security.app-sandbox')
   })
 
   test('uses a pure white DMG installer background', () => {

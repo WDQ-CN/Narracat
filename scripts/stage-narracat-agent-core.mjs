@@ -125,6 +125,25 @@ function getNodeModulePackageRelativeSegments(segments) {
   return segments.slice(packageRootLength)
 }
 
+// onnxruntime-node 随包携带 5 个平台的预编译二进制（darwin/linux/win32 × x64/arm64），实测共 208MB。
+// 本产品只分发 macOS arm64：裁掉其余 ~176MB，同时缩小公证需上传给 Apple 扫描的 Mach-O 面。
+// 裁剪正确性由「设置页向量健康诊断体检卡」直接证伪——裁坏则 embedding 必然失败。
+export const BUNDLED_NATIVE_PLATFORM = 'darwin'
+export const BUNDLED_NATIVE_ARCH = 'arm64'
+
+export function shouldPruneForeignPlatformBinary(relPath) {
+  const segments = toPosix(relPath).split('/').filter(Boolean)
+  const packageIndex = segments.indexOf('onnxruntime-node')
+  if (packageIndex === -1) return false
+
+  const [binDir, abiDir, platform, arch] = segments.slice(packageIndex + 1)
+  if (binDir !== 'bin' || abiDir !== 'napi-v3' || !platform) return false
+  if (platform !== BUNDLED_NATIVE_PLATFORM) return true
+  // 目标平台目录自身放行，以便 fs.cp 递归进去后再逐个架构判定
+  if (!arch) return false
+  return arch !== BUNDLED_NATIVE_ARCH
+}
+
 /**
  * 默认拒绝白名单谓词：给定相对 agent-core 根的路径，决定是否进入打包产物。
  * 设计为可被 fs.cp 的 filter 直接调用——对「白名单路径的祖先目录」返回 true 以允许递归。
@@ -139,6 +158,9 @@ export function shouldBundleAgentCorePath(relPath) {
   // 硬丢弃（任何位置）
   if (segments.includes('.git')) return false
   if (base === '.DS_Store') return false
+
+  // 非目标平台的预编译二进制（在 node_modules 不透明照搬之前拦下）
+  if (shouldPruneForeignPlatformBinary(rel)) return false
 
   // node_modules 内部视为不透明：生产依赖已 prune，照搬，不对其套 test/__tests__ 剔除
   // （以免误删某个包运行期真需要的 test 命名文件）。
@@ -162,6 +184,40 @@ export function shouldBundleAgentCorePath(relPath) {
   }
 
   return false
+}
+
+// shouldPruneForeignPlatformBinary 硬编码了 `bin/napi-v3/darwin/arm64` 这条 ABI/平台目录路径。若 onnxruntime-node 未来
+// 升级改了 ABI 目录名（如 napi-v4）：裁剪谓词全线不匹配 → 静默失效 → 5 个平台的二进制照单全收，
+// 只是包变胖，无害。但若改了平台目录名，则会误裁我们需要的那份 → 静默裁过头 → embedding 在加固
+// 运行时下无声失效、且无任何报错（本项目前科：issue #312/#316/#320）。这条正向断言就是防「误裁」的：
+// 暂存树里必须真的还留着 darwin/arm64 的 .node 与 .dylib，缺了就在打包这一步直接炸，而不是留到
+// 用户设置页「向量健康诊断」体检卡才发现。
+export async function assertBundledOnnxRuntimeNativeBinaryPresent(destination) {
+  const binaryDir = join(
+    destination,
+    'mcp-server',
+    'node_modules',
+    'onnxruntime-node',
+    'bin',
+    'napi-v3',
+    BUNDLED_NATIVE_PLATFORM,
+    BUNDLED_NATIVE_ARCH,
+  )
+  if (!(await pathExists(binaryDir))) {
+    throw new Error(
+      `暂存产物缺少 onnxruntime-node 的 ${BUNDLED_NATIVE_PLATFORM}/${BUNDLED_NATIVE_ARCH} 二进制目录：${binaryDir}` +
+        '（裁剪可能裁过头，embedding 会静默失效——检查 shouldPruneForeignPlatformBinary 是否还匹配当前 onnxruntime-node 版本的目录结构）',
+    )
+  }
+  const entries = await readdir(binaryDir)
+  const hasNativeModule = entries.some((name) => name.endsWith('.node'))
+  const hasDylib = entries.some((name) => name.endsWith('.dylib'))
+  if (!hasNativeModule || !hasDylib) {
+    throw new Error(
+      `暂存产物的 onnxruntime-node ${BUNDLED_NATIVE_PLATFORM}/${BUNDLED_NATIVE_ARCH} 目录不完整（.node 存在=${hasNativeModule}，.dylib 存在=${hasDylib}）：${binaryDir}` +
+        '（裁剪可能裁过头，embedding 会静默失效）',
+    )
+  }
 }
 
 async function pathExists(path) {
@@ -206,6 +262,7 @@ export async function verifyStagedAgentCore(destination) {
   if (await pathExists(join(destination, 'mcp-server', 'node_modules', 'onnxruntime-web'))) {
     throw new Error('暂存产物仍含 onnxruntime-web（packaged MCP 使用 Node backend，应禁止 Web backend 随包外发）')
   }
+  await assertBundledOnnxRuntimeNativeBinaryPresent(destination)
   const runtimePayloadViolation = await findFirstStagedRuntimePayloadViolation(destination)
   if (runtimePayloadViolation) {
     throw new Error(`暂存产物仍含 MCP runtime 开发型文件：${runtimePayloadViolation}`)

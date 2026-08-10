@@ -126,6 +126,14 @@ describe('packaged app.asar boundary audit', () => {
     })
   })
 
+  test('打包后审计拦下混入的非目标平台二进制', () => {
+    const base = 'NarraCatAgentCore/mcp-server/node_modules/onnxruntime-node/bin/napi-v3'
+    expect(classifyPackagedResourceEntry(`${base}/darwin/arm64/onnxruntime_binding.node`).ok).toBe(true)
+    expect(classifyPackagedResourceEntry(`${base}/linux/x64/onnxruntime_binding.node`).ok).toBe(false)
+    expect(classifyPackagedResourceEntry(`${base}/win32/x64/onnxruntime_binding.node`).ok).toBe(false)
+    expect(classifyPackagedResourceEntry(`${base}/darwin/x64/onnxruntime_binding.node`).ok).toBe(false)
+  })
+
   test('resolves the default packaged app.asar path', () => {
     expect(resolvePackagedAppPath([], '/repo')).toBe(join('/repo', 'dist', 'mac-arm64', 'NarraCat.app'))
     expect(resolvePackagedAsarPath([], '/repo')).toBe(

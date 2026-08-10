@@ -6,6 +6,7 @@ import { listPackage } from '@electron/asar'
 import {
   FORBIDDEN_RELATIVE_PATHS,
   hasPrunedMcpNodeModuleDirectory,
+  shouldPruneForeignPlatformBinary,
   shouldPruneMcpDistFile,
   shouldPruneMcpNodeModuleFile,
 } from './stage-narracat-agent-core.mjs'
@@ -134,6 +135,14 @@ export function classifyPackagedResourceEntry(entry) {
   if (!normalized.startsWith('NarraCatAgentCore/')) return { ok: true, path: normalized }
 
   const agentCorePath = normalized.slice('NarraCatAgentCore/'.length)
+  if (shouldPruneForeignPlatformBinary(agentCorePath)) {
+    return {
+      ok: false,
+      path: normalized,
+      reason: 'foreign-platform prebuilt binary must be pruned (only darwin/arm64 ships)',
+    }
+  }
+
   const forbidden = FORBIDDEN_AGENT_CORE_RESOURCE_PATHS.find((prefix) =>
     hasForbiddenPathPrefix(agentCorePath, prefix),
   )

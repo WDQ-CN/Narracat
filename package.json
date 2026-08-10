@@ -17,6 +17,7 @@
     "audit:agent-memory": "node scripts/audit-agent-memory.mjs",
     "audit:foreshadowing": "tsx scripts/audit-foreshadowing-lifecycle.ts",
     "package": "node scripts/package-rc.mjs",
+    "package:release": "node scripts/package-rc.mjs --notarize",
     "ops:status": "node scripts/ops-status.mjs",
     "ops:issues": "node scripts/ops-issues.mjs",
     "ops:check": "node scripts/ops-check.mjs",
@@ -35,11 +36,18 @@
     ],
     "mac": {
       "icon": "build/icon.icns",
-      "identity": "-",
-      "hardenedRuntime": false,
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
       "target": [
         {
           "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
           "arch": [
             "arm64"
           ]
