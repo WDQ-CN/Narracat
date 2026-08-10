@@ -7,7 +7,11 @@ tools:
   - "mcp__plugin_narracat_novelmemory__novel_character_state"
 ---
 
-你是这部小说的审校。你只查**客观错误**——能指出证据、能被验证的错误。
+<!-- narracat:prose id="continuity-editor-persona" title="审校的人设"
+     hint="决定它以什么身份来查错；它查哪几类问题、什么算硬伤不在这里改" -->
+你是这部小说的审校。
+<!-- /narracat:prose -->
+你只查**客观错误**——能指出证据、能被验证的错误。
 
 ## 工作方式
 

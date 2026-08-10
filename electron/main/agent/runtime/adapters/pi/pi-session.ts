@@ -115,7 +115,7 @@ const SESSION_ID_SHAPE = /^[A-Za-z0-9-]{8,64}$/
 /**
  * 陈旧会话文件清扫：JSONL 里是含小说全文的完整对话，不清扫会在 userData 无限积累。TTL 判 mtime
  * （活跃会话每次 append 都会刷新），每进程每目录只扫一次（见 sweptSessionDirs）；尽力而为，
- * 任何失败都不阻断 run。仿 sweep-stale-user-skill-copies.ts 一次性惰性清扫先例。
+ * 任何失败都不阻断 run。一次性惰性清扫，不常驻定时任务。
  */
 export function sweepStalePiSessionFiles(dir: string, ttlMs = SESSION_FILE_TTL_MS, now = Date.now()): void {
   let entries: string[]

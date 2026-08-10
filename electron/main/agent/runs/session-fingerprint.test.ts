@@ -19,15 +19,10 @@ const config: AppConfig = {
 }
 
 describe('agent session compatibility fingerprint', () => {
-  test('changes for provider generation, runtime mode, project path, and user Skill content without reading API key plaintext', async () => {
+  test('changes for provider generation, runtime mode, and project path without reading API key plaintext', async () => {
     const root = await mkdtemp(join(tmpdir(), 'narracat-session-fingerprint-'))
     const projectPath = join(root, 'novel')
-    const skillPath = join(root, 'user-skills', 'skill-1')
     await mkdir(projectPath, { recursive: true })
-    await mkdir(skillPath, { recursive: true })
-    await writeFile(join(root, 'skill-mounts.json'), '{"mounts":[]}\n')
-    await writeFile(join(root, 'user-skills.json'), '{"skills":[]}\n')
-    await writeFile(join(skillPath, 'SKILL.md'), 'version one\n')
 
     const baseInput = {
       config,
@@ -39,8 +34,6 @@ describe('agent session compatibility fingerprint', () => {
       allowedTools: ['Read', 'Write'],
       runtimeId: 'claude-sdk' as const,
       agentCoreVersion: '1.0.0',
-      skillMountStorePath: join(root, 'skill-mounts.json'),
-      userDataPath: root,
     }
     const first = await createAgentSessionCompatibilityFingerprint(baseInput)
     expect(first).toHaveLength(64)
@@ -61,13 +54,10 @@ describe('agent session compatibility fingerprint', () => {
       ...baseInput,
       runtimeId: 'pi',
     })
-    await writeFile(join(skillPath, 'SKILL.md'), 'version two\n')
-    const skillChanged = await createAgentSessionCompatibilityFingerprint(baseInput)
 
     expect(generationChanged).not.toBe(first)
     expect(modeChanged).not.toBe(first)
     expect(runtimeChanged).not.toBe(first)
-    expect(skillChanged).not.toBe(first)
   })
 
   test('fallback hash (no injected fingerprint fn) also varies by runtime id', async () => {

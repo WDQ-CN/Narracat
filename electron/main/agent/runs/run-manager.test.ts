@@ -2208,26 +2208,7 @@ describe('createAgentRunManager', () => {
     expect(events.map((event) => event.type)).not.toContain('run.cancelled')
   })
 
-  // ---- 用户 Skill overrides 注入门控（projectPath 传递；阶段2切片④退役 cleanup 所有权交接链） ----
-
-  function makeSkillOverridesStub() {
-    const projectPaths: (string | undefined)[] = []
-    const resolve = async (args: { agentCorePath: string; projectPath?: string }) => {
-      projectPaths.push(args.projectPath)
-      return {
-        agents: { 'chapter-writer': { description: 'd', prompt: 'p' } },
-      }
-    }
-    return {
-      resolve,
-      get projectPaths() {
-        return projectPaths
-      },
-    }
-  }
-
-  test('applies overrides (passes projectPath to resolver) when freeform continues a resumed project-command session', async () => {
-    const stub = makeSkillOverridesStub()
+  test('applies agent overrides when freeform continues a resumed project-command session', async () => {
     const firstStreamDone = createDeferred<void>()
     const secondStreamDone = createDeferred<void>()
     const capturedArgs: RunClaudeAgentQueryArgs[] = []
@@ -2256,7 +2237,9 @@ describe('createAgentRunManager', () => {
       agentCoreManifestExists: () => true,
       readNarraCatCommandFile: (_pluginPath, commandName) =>
         `---\ndescription: ${commandName}\n---\n执行 ${commandName} command。参数：$ARGUMENTS。`,
-      resolveAgentSkillOverrides: stub.resolve,
+      resolveAgentSkillOverrides: async () => ({
+        agents: { 'chapter-writer': { description: 'd', prompt: 'p' } },
+      }),
       runtime: fakeRuntime(runSdkQuery),
       sendEvent: () => {},
       appRoot: '/workspace/narracat-decktop',
@@ -2267,14 +2250,14 @@ describe('createAgentRunManager', () => {
     // 首轮 project-command（setup）建立 project-command 会话
     await manager.startRun({ threadId: 'thread-1', command: 'setup', prompt: '开始设定引导', projectPath: '/novels/stars' })
     await withTimeout(firstStreamDone.promise, 'resumed-session first run completion')
-    // 续聊轮 freeform：needsNarraCatRuntime=false，但仍应用 overrides → 必须也同步用户 Skill（传 projectPath）
+    // 续聊轮 freeform：resume 到已建立的 project-command 会话，走 buildResumedCommandRunPlan——
+    // agents 是否进 options 由 resumed-command-path.ts 的
+    // `agents: sdkSession.loadNarraCatRuntime ? agentSkillOverrides : undefined` 独立把关（本任务
+    // 未改动这条门控），这里验证正向场景下该门控确实放行、agents 覆盖到达了 SDK query options。
     await manager.startRun({ threadId: 'thread-1', command: 'freeform', prompt: '继续聊' })
     await withTimeout(secondStreamDone.promise, 'resumed-session freeform continuation completion')
     await Promise.resolve()
 
-    // 续聊轮（第二次 resolve）拿到了 projectPath，而非 undefined（用户 Skill 不再静默掉线）
-    expect(stub.projectPaths).toEqual(['/novels/stars', '/novels/stars'])
-    // 续聊轮仍带上 agents 覆盖（门控语义不变：willApplyOverridesWithRuntime 判定不受本次改动影响）
     expect(capturedArgs[1]?.options.agents).toBeTruthy()
   })
 

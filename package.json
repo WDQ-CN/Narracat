@@ -10,7 +10,7 @@
     "dev": "node scripts/check-node-runtime.mjs && node scripts/prepare-narracat-agent-core.mjs --if-missing --optional && node scripts/ensure-electron-native.mjs && electron-vite dev",
     "build": "node scripts/check-node-runtime.mjs && electron-vite build",
     "preview": "node scripts/check-node-runtime.mjs && electron-vite preview",
-    "test": "node scripts/check-architecture.mjs --enforce && bun test ./scripts ./electron ./src ./shared ./agent-core/narracat/scripts",
+    "test": "node scripts/check-architecture.mjs --enforce && node scripts/check-prose-blocks.mjs && bun test ./scripts ./electron ./src ./shared ./agent-core/narracat/scripts",
     "prepare:narracat-agent-core": "node scripts/prepare-narracat-agent-core.mjs",
     "verify:narracat-agent-core": "node scripts/prepare-narracat-agent-core.mjs --check-version --source agent-core/narracat",
     "audit:narracat-prompts": "node scripts/audit-narracat-prompts.mjs",
@@ -22,7 +22,7 @@
     "ops:check": "node scripts/ops-check.mjs",
     "perf:baseline": "tsx scripts/performance-baseline.ts",
     "check:design": "node scripts/check-design-system.mjs",
-    "check:architecture": "node scripts/check-architecture.mjs --enforce",
+    "check:architecture": "node scripts/check-architecture.mjs --enforce && node scripts/check-prose-blocks.mjs",
     "smoke:memory": "node scripts/ensure-electron-native.mjs && bun --no-cache run build && node scripts/smoke-memory.mjs",
     "typecheck": "tsc -b"
   },

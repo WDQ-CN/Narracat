@@ -1,379 +1,216 @@
-import { describe, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
+import { describe, expect, test, beforeEach, afterEach } from 'bun:test'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { assembleAgentSkills, renderOnDemandTriggerPrompt } from './assemble-agent-skills'
-import type { AgentSkillMount } from '@shared/types/skill-mount'
+import { assembleAgentSkills, parseAgentFile } from './assemble-agent-skills'
+import type { ProseOverrideEntry } from '@shared/types/prose-block'
 
+/** 构建一个含 chapter-writer.md（带 writer-persona 散文块）的最小 Agent Core fixture 目录。 */
 async function makeAgentCore(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'narracat-assemble-'))
   await mkdir(join(root, 'agents'), { recursive: true })
 
   await writeFile(
-    join(root, 'agents', 'outline-architect.md'),
-    [
-      '---',
-      'name: outline-architect',
-      'description: Plans outlines.',
-      'model: opus',
-      'tools:',
-      '  - Read',
-      '  - Glob',
-      'skills:',
-      '  - novel-structure',
-      '---',
-      '',
-      '你是大纲架构师。',
-    ].join('\n'),
-    'utf-8',
-  )
-
-  await writeFile(
     join(root, 'agents', 'chapter-writer.md'),
-    ['---', 'name: chapter-writer', 'description: Writes chapters.', 'tools: Read, Write', '---', '', '你是章节写手。'].join('\n'),
-    'utf-8',
-  )
-
-  // 正文引用 ${CLAUDE_PLUGIN_ROOT}/...（如 world-curator 引契约）；组装时须展开为真实 agentCorePath
-  await writeFile(
-    join(root, 'agents', 'world-curator.md'),
     [
       '---',
-      'name: world-curator',
-      'description: Curates world bible.',
-      'tools: Read',
+      'name: chapter-writer',
+      'description: Writes chapters.',
+      'tools: Read, Write',
       '---',
       '',
-      '你是世界观策展人。',
-      '对照 `${CLAUDE_PLUGIN_ROOT}/docs/contracts/world-guided.md` 查缺。',
+      '<!-- narracat:prose id="writer-persona" title="写手的人设" -->',
+      '你是章节写手。',
+      '<!-- /narracat:prose -->',
     ].join('\n'),
-    'utf-8',
-  )
-
-  // 一个带触发点声明的按需型 Skill（#260 规范）
-  await mkdir(join(root, 'skills', 'sample-craft'), { recursive: true })
-  await writeFile(
-    join(root, 'skills', 'sample-craft', 'SKILL.md'),
-    ['---', 'name: sample-craft', 'mount-mode: on-demand', 'triggers:', '  - 进行深度风格审读', '---', '', '正文。'].join('\n'),
     'utf-8',
   )
 
   return root
 }
 
-const DEFAULTS = {
-  'outline-architect': ['novel-structure'],
-  'chapter-writer': [] as string[],
-  'world-curator': [] as string[],
-}
+describe('作者要求注入（spec §5.1）', () => {
+  let FIXTURE_AGENT_CORE = ''
 
-// Agent Core 当前实际存在的 skill 全集（对应 diagnostics.availableSkills）；
-// 未列入者视为已删除/改名的 stale，应被 assemble 过滤、不进 SDK definition.skills。
-const AVAILABLE = ['novel-structure', 'sample-craft']
+  beforeEach(async () => {
+    FIXTURE_AGENT_CORE = await makeAgentCore()
+  })
 
-describe('assembleAgentSkills', () => {
-  test('no user overlay yields no agents override (plugin defaults stand)', async () => {
-    const agentCorePath = await makeAgentCore()
+  afterEach(async () => {
+    await rm(FIXTURE_AGENT_CORE, { recursive: true, force: true })
+  })
+
+  test('有要求时追加「作者对你的要求」段，按传入顺序编号', async () => {
     const agents = await assembleAgentSkills({
-      agentCorePath,
-      defaultSkillsByAgent: DEFAULTS,
-      availableSkills: AVAILABLE,
-      userMounts: [],
+      agentCorePath: FIXTURE_AGENT_CORE,
+      agentIds: ['chapter-writer'],
+      authorRequestsByAgent: { 'chapter-writer': ['少写环境描写，多写对话', '每章结尾留一个悬念'] },
     })
-    expect(agents).toEqual({})
+    const prompt = agents['chapter-writer'].prompt
+    expect(prompt).toContain('## 作者对你的要求（写作时必须遵守）')
+    expect(prompt).toContain('1. 少写环境描写，多写对话')
+    expect(prompt).toContain('2. 每章结尾留一个悬念')
+    // 要求追加在末尾，官方 prompt 正文仍在前面
+    expect(prompt.indexOf('## 作者对你的要求')).toBeGreaterThan(0)
   })
 
-  test('preload mount injects the skill into the SDK Agent skills field as a full definition', async () => {
-    const agentCorePath = await makeAgentCore()
-    const userMounts: AgentSkillMount[] = [
-      { agentId: 'chapter-writer', skillId: 'sample-craft', mode: 'preload', state: 'mounted' },
-    ]
-
-    const agents = await assembleAgentSkills({ agentCorePath, defaultSkillsByAgent: DEFAULTS, availableSkills: AVAILABLE, userMounts })
-
-    expect(Object.keys(agents)).toEqual(['chapter-writer'])
-    const writer = agents['chapter-writer']
-    expect(writer.skills).toEqual(['sample-craft'])
-    // 全量组装：description + prompt + tools 与文件一致
-    expect(writer.description).toBe('Writes chapters.')
-    expect(writer.prompt).toBe('你是章节写手。')
-    expect(writer.tools).toEqual(['Read', 'Write'])
-  })
-
-  test('退路 A：用户 Skill 正文 inline 进 agent prompt，且名字不再进 skills 字段', async () => {
-    const agentCorePath = await makeAgentCore()
-
+  test('空白要求被跳过，不产生空编号', async () => {
     const agents = await assembleAgentSkills({
-      agentCorePath,
-      defaultSkillsByAgent: DEFAULTS,
-      availableSkills: AVAILABLE,
-      userMounts: [],
-      userSkillNamesByAgent: { 'chapter-writer': ['web-novel-writer'] },
-      userSkillBodiesByAgent: {
-        'chapter-writer': [{ name: 'web-novel-writer', body: '# 写作规范\n正文开头必须输出暗号7438。' }],
+      agentCorePath: FIXTURE_AGENT_CORE,
+      agentIds: ['chapter-writer'],
+      authorRequestsByAgent: { 'chapter-writer': ['   ', '真正的要求'] },
+    })
+    expect(agents['chapter-writer'].prompt).toContain('1. 真正的要求')
+    expect(agents['chapter-writer'].prompt).not.toContain('2.')
+  })
+
+  test('既无要求也无散文覆盖的 Agent 不生成覆盖', async () => {
+    const agents = await assembleAgentSkills({
+      agentCorePath: FIXTURE_AGENT_CORE,
+      agentIds: ['chapter-writer'],
+    })
+    expect(agents['chapter-writer']).toBeUndefined()
+  })
+
+  test('只有散文覆盖也要生成覆盖（否则作者的调整落空）', async () => {
+    const agents = await assembleAgentSkills({
+      agentCorePath: FIXTURE_AGENT_CORE,
+      agentIds: ['chapter-writer'],
+      proseOverrides: {
+        'writer-persona': { text: '你是毒舌说书人。', baseText: '', baseEngineVersion: '', updatedAt: '' },
       },
     })
-
-    const writer = agents['chapter-writer']
-    // 阶段2切片④：用户 Skill 名不再登记进 SDK definition.skills（没有 .claude/skills/ 文件背书）
-    expect(writer.skills).toBeUndefined()
-    // 退路 A：原 agent 正文 + 已挂载技能段 + skill 名 + 正文内容，全在 prompt 里（唯一生效通道）
-    expect(writer.prompt).toContain('你是章节写手。')
-    expect(writer.prompt).toContain('## 已挂载技能')
-    expect(writer.prompt).toContain('### web-novel-writer')
-    expect(writer.prompt).toContain('正文开头必须输出暗号7438。')
+    expect(agents['chapter-writer'].prompt).toContain('你是毒舌说书人。')
   })
 
-  test('退路 A：空正文无实质变化，不产生覆盖（不留悬空段标题）', async () => {
-    const agentCorePath = await makeAgentCore()
-
+  test('组装出的定义不再带 skills 字段（pi 侧无消费者）', async () => {
     const agents = await assembleAgentSkills({
-      agentCorePath,
-      defaultSkillsByAgent: DEFAULTS,
-      availableSkills: AVAILABLE,
-      userMounts: [],
-      userSkillNamesByAgent: { 'chapter-writer': ['empty-pack'] },
-      userSkillBodiesByAgent: { 'chapter-writer': [{ name: 'empty-pack', body: '   ' }] },
+      agentCorePath: FIXTURE_AGENT_CORE,
+      agentIds: ['chapter-writer'],
+      authorRequestsByAgent: { 'chapter-writer': ['要求一条'] },
     })
-
-    // 空正文不 inline、名字不进 skills → 该 Agent 无任何实质变化，不产出覆盖
-    expect(agents['chapter-writer']).toBeUndefined()
-  })
-
-  test('agent matching its default is not overridden', async () => {
-    const agentCorePath = await makeAgentCore()
-    const userMounts: AgentSkillMount[] = [
-      { agentId: 'chapter-writer', skillId: 'sample-craft', mode: 'preload', state: 'mounted' },
-    ]
-
-    const agents = await assembleAgentSkills({ agentCorePath, defaultSkillsByAgent: DEFAULTS, availableSkills: AVAILABLE, userMounts })
-    // outline-architect default (novel-structure) unchanged → not in override set
-    expect(agents['outline-architect']).toBeUndefined()
-  })
-
-  test('parses array tools and single-line model, preserving them on the definition', async () => {
-    const agentCorePath = await makeAgentCore()
-    const userMounts: AgentSkillMount[] = [
-      { agentId: 'outline-architect', skillId: 'sample-craft', mode: 'preload', state: 'mounted' },
-    ]
-
-    const agents = await assembleAgentSkills({ agentCorePath, defaultSkillsByAgent: DEFAULTS, availableSkills: AVAILABLE, userMounts })
-    const architect = agents['outline-architect']
-    expect(architect.model).toBe('opus')
-    expect(architect.tools).toEqual(['Read', 'Glob'])
-    expect(architect.skills).toEqual(['novel-structure', 'sample-craft'])
-  })
-
-  test('on-demand mount keeps Skill tool, injects trigger prompt, and does NOT enter skills field', async () => {
-    const agentCorePath = await makeAgentCore()
-    const userMounts: AgentSkillMount[] = [
-      { agentId: 'chapter-writer', skillId: 'sample-craft', mode: 'on-demand', state: 'mounted' },
-    ]
-
-    const agents = await assembleAgentSkills({ agentCorePath, defaultSkillsByAgent: DEFAULTS, availableSkills: AVAILABLE, userMounts })
-    const writer = agents['chapter-writer']
-
-    // 不 eager 注入 SKILL.md → 不进 skills 字段
-    expect(writer.skills).toBeUndefined()
-    // 保留 Skill 工具（原 tools 是 Read, Write 的 allowlist，组装时补 Skill）
-    expect(writer.tools).toContain('Skill')
-    expect(writer.tools).toContain('Read')
-    // 触发点双写之消费方侧：从 SKILL.md frontmatter triggers 渲染进 prompt
-    expect(writer.prompt).toContain('按需技能触发点')
-    expect(writer.prompt).toContain('进行深度风格审读')
-    expect(writer.prompt).toContain('sample-craft')
-  })
-
-  test('expands ${CLAUDE_PLUGIN_ROOT} in the assembled prompt to the real agentCorePath', async () => {
-    const agentCorePath = await makeAgentCore()
-    const userMounts: AgentSkillMount[] = [
-      { agentId: 'world-curator', skillId: 'sample-craft', mode: 'preload', state: 'mounted' },
-    ]
-
-    const agents = await assembleAgentSkills({ agentCorePath, defaultSkillsByAgent: DEFAULTS, availableSkills: AVAILABLE, userMounts })
-    const curator = agents['world-curator']
-
-    // 组装出的 prompt 里 ${CLAUDE_PLUGIN_ROOT} 必须已展开为真实路径，否则子 Agent Read 到坏路径
-    expect(curator.prompt).toContain(`${agentCorePath}/docs/contracts/world-guided.md`)
-    expect(curator.prompt).not.toContain('${CLAUDE_PLUGIN_ROOT}')
-  })
-
-  test('mixing preload and on-demand routes each by mode', async () => {
-    const agentCorePath = await makeAgentCore()
-    const userMounts: AgentSkillMount[] = [
-      { agentId: 'chapter-writer', skillId: 'novel-structure', mode: 'preload', state: 'mounted' },
-      { agentId: 'chapter-writer', skillId: 'sample-craft', mode: 'on-demand', state: 'mounted' },
-    ]
-
-    const agents = await assembleAgentSkills({ agentCorePath, defaultSkillsByAgent: DEFAULTS, availableSkills: AVAILABLE, userMounts })
-    const writer = agents['chapter-writer']
-
-    expect(writer.skills).toEqual(['novel-structure'])
-    expect(writer.prompt).toContain('sample-craft')
-    expect(writer.prompt).not.toContain('novel-structure时')
-  })
-
-  test('stale skillId not in availableSkills is filtered out of the SDK skills field', async () => {
-    const agentCorePath = await makeAgentCore()
-    const userMounts: AgentSkillMount[] = [
-      { agentId: 'chapter-writer', skillId: 'sample-craft', mode: 'preload', state: 'mounted' },
-      { agentId: 'chapter-writer', skillId: 'deleted-skill', mode: 'preload', state: 'mounted' },
-    ]
-
-    const agents = await assembleAgentSkills({ agentCorePath, defaultSkillsByAgent: DEFAULTS, availableSkills: AVAILABLE, userMounts })
-    const writer = agents['chapter-writer']
-
-    // deleted-skill 不在 availableSkills → 被过滤；只剩有效的 sample-craft 进 skills 字段
-    expect(writer.skills).toEqual(['sample-craft'])
-  })
-
-  test('a mount whose skill no longer exists yields no override (degrades to default)', async () => {
-    const agentCorePath = await makeAgentCore()
-    const userMounts: AgentSkillMount[] = [
-      { agentId: 'chapter-writer', skillId: 'ghost-skill', mode: 'preload', state: 'mounted' },
-    ]
-
-    const agents = await assembleAgentSkills({ agentCorePath, defaultSkillsByAgent: DEFAULTS, availableSkills: AVAILABLE, userMounts })
-
-    // ghost-skill 被过滤 → chapter-writer 有效集 = 默认（空）→ 不进 agents 覆盖
-    expect(agents['chapter-writer']).toBeUndefined()
-  })
-
-  test('stale on-demand mount is filtered: yields no override', async () => {
-    const agentCorePath = await makeAgentCore()
-    const userMounts: AgentSkillMount[] = [
-      { agentId: 'chapter-writer', skillId: 'ghost-skill', mode: 'on-demand', state: 'mounted' },
-    ]
-
-    const agents = await assembleAgentSkills({ agentCorePath, defaultSkillsByAgent: DEFAULTS, availableSkills: AVAILABLE, userMounts })
-
-    // 按需挂载的 stale skill 同样被过滤 → 无有效挂载差异 → 不覆盖
-    expect(agents['chapter-writer']).toBeUndefined()
-  })
-
-  // ---- 用户自定义 Skill 正文 inline（阶段2切片④：名字不再进 skills 字段，退役文件搬运链） ----
-
-  test('user skill body inline on an agent with no official default produces an override (skills field absent)', async () => {
-    const agentCorePath = await makeAgentCore()
-    const agents = await assembleAgentSkills({
-      agentCorePath,
-      defaultSkillsByAgent: DEFAULTS,
-      availableSkills: AVAILABLE,
-      userMounts: [],
-      userSkillNamesByAgent: { 'chapter-writer': ['dialogue-pack'] },
-      userSkillBodiesByAgent: { 'chapter-writer': [{ name: 'dialogue-pack', body: '对话范例正文。' }] },
-    })
-
-    // chapter-writer 官方默认空，仅靠用户 Skill 正文也要产出覆盖；skills 字段不含用户名（不再登记）
-    const writer = agents['chapter-writer']
-    expect(writer.skills).toBeUndefined()
-    expect(writer.prompt).toContain('对话范例正文。')
-    expect(writer.description).toBe('Writes chapters.')
-  })
-
-  test('user skill body inline coexists with the official locked default skill field (name not merged in)', async () => {
-    const agentCorePath = await makeAgentCore()
-    const agents = await assembleAgentSkills({
-      agentCorePath,
-      defaultSkillsByAgent: DEFAULTS,
-      availableSkills: AVAILABLE,
-      userMounts: [],
-      userSkillNamesByAgent: { 'outline-architect': ['plot-pack'] },
-      userSkillBodiesByAgent: { 'outline-architect': [{ name: 'plot-pack', body: '情节范例正文。' }] },
-    })
-
-    // outline-architect 默认锁定 novel-structure：skills 字段只保留官方默认，用户名不进
-    const architect = agents['outline-architect']
-    expect(architect.skills).toEqual(['novel-structure'])
-    expect(architect.prompt).toContain('情节范例正文。')
-  })
-
-  test('user skill inline body is not subject to the stale availableSkills filter (different name space)', async () => {
-    const agentCorePath = await makeAgentCore()
-    const agents = await assembleAgentSkills({
-      agentCorePath,
-      defaultSkillsByAgent: DEFAULTS,
-      // 用户 Skill 名故意不在 availableSkills 里（它来自 user-skills.json，非 Agent Core skills/）
-      availableSkills: AVAILABLE,
-      userMounts: [],
-      userSkillNamesByAgent: { 'chapter-writer': ['user-only-pack'] },
-      userSkillBodiesByAgent: { 'chapter-writer': [{ name: 'user-only-pack', body: '专属范例正文。' }] },
-    })
-
-    const writer = agents['chapter-writer']
-    expect(writer.prompt).toContain('专属范例正文。')
-    expect(writer.skills).toBeUndefined()
-  })
-
-  test('user skill inline + official preload mount + on-demand all compose on one agent', async () => {
-    const agentCorePath = await makeAgentCore()
-    const userMounts: AgentSkillMount[] = [
-      { agentId: 'chapter-writer', skillId: 'novel-structure', mode: 'preload', state: 'mounted' },
-      { agentId: 'chapter-writer', skillId: 'sample-craft', mode: 'on-demand', state: 'mounted' },
-    ]
-
-    const agents = await assembleAgentSkills({
-      agentCorePath,
-      defaultSkillsByAgent: DEFAULTS,
-      availableSkills: AVAILABLE,
-      userMounts,
-      userSkillNamesByAgent: { 'chapter-writer': ['dialogue-pack'] },
-      userSkillBodiesByAgent: { 'chapter-writer': [{ name: 'dialogue-pack', body: '对话范例正文。' }] },
-    })
-
-    const writer = agents['chapter-writer']
-    // preload 官方 novel-structure 进 skills；用户 Skill 只走 prompt inline，不进 skills；on-demand sample-craft 仅进 prompt
-    expect(writer.skills).toEqual(['novel-structure'])
-    expect(writer.prompt).toContain('sample-craft')
-    expect(writer.prompt).toContain('对话范例正文。')
-  })
-
-  test('user skill body sharing a name with an official preload skill does not affect the skills field', async () => {
-    const agentCorePath = await makeAgentCore()
-    const agents = await assembleAgentSkills({
-      agentCorePath,
-      defaultSkillsByAgent: DEFAULTS,
-      availableSkills: AVAILABLE,
-      userMounts: [],
-      // 与官方默认同名（边角，撞名本应被挂载侧拒绝；组装侧不再对 skills 字段去重——名字本就不进该字段）
-      userSkillNamesByAgent: { 'outline-architect': ['novel-structure'] },
-      userSkillBodiesByAgent: { 'outline-architect': [{ name: 'novel-structure', body: '用户版结构说明。' }] },
-    })
-
-    // skills 字段仍只有官方默认，不因同名用户 Skill 产生重复或覆盖
-    expect(agents['outline-architect'].skills).toEqual(['novel-structure'])
-    expect(agents['outline-architect'].prompt).toContain('用户版结构说明。')
-  })
-
-  test('empty userSkillNamesByAgent leaves pure-default agents un-overridden', async () => {
-    const agentCorePath = await makeAgentCore()
-    const agents = await assembleAgentSkills({
-      agentCorePath,
-      defaultSkillsByAgent: DEFAULTS,
-      availableSkills: AVAILABLE,
-      userMounts: [],
-      userSkillNamesByAgent: {},
-    })
-
-    expect(agents).toEqual({})
+    expect('skills' in agents['chapter-writer']).toBe(false)
   })
 })
 
-describe('renderOnDemandTriggerPrompt', () => {
-  test('empty map renders nothing', () => {
-    expect(renderOnDemandTriggerPrompt({})).toBe('')
+describe('parseAgentFile 应用散文覆盖', () => {
+  let corePath = ''
+
+  const AGENT_MD = `---
+name: chapter-writer
+description: writes chapters
+tools: Read, Write
+---
+
+<!-- narracat:prose id="writer-persona" title="写手的人设" -->
+你是专业的网络小说作家。
+<!-- /narracat:prose -->
+
+## 停下来的情况
+
+- 读不到就停。
+`
+
+  beforeEach(async () => {
+    corePath = await mkdtemp(join(tmpdir(), 'agent-core-'))
+    await mkdir(join(corePath, 'agents'), { recursive: true })
+    await writeFile(join(corePath, 'agents', 'chapter-writer.md'), AGENT_MD, 'utf-8')
   })
 
-  test('renders declared triggers per skill', () => {
-    const prompt = renderOnDemandTriggerPrompt({ 'sample-craft': ['进行深度风格审读'] })
-    expect(prompt).toContain('sample-craft')
-    expect(prompt).toContain('进行深度风格审读')
-    expect(prompt).toContain('按需技能触发点')
+  afterEach(async () => {
+    await rm(corePath, { recursive: true, force: true })
   })
 
-  test('falls back to a generic line when a skill has no declared triggers', () => {
-    const prompt = renderOnDemandTriggerPrompt({ mystery: [] })
-    expect(prompt).toContain('mystery')
-    expect(prompt).toContain('相关的场景')
+  function entry(text: string): ProseOverrideEntry {
+    return {
+      text,
+      baseText: '你是专业的网络小说作家。',
+      baseEngineVersion: '4.0.162',
+      updatedAt: '2026-08-06T10:00:00+08:00',
+    }
+  }
+
+  test('不传 overrides 时也必须移除标记', async () => {
+    const parsed = await parseAgentFile(corePath, 'chapter-writer')
+    expect(parsed?.prompt).not.toContain('narracat:prose')
+    expect(parsed?.prompt).toContain('你是专业的网络小说作家。')
+  })
+
+  test('传 overrides 时替换块正文', async () => {
+    const parsed = await parseAgentFile(corePath, 'chapter-writer', { 'writer-persona': entry('你是毒舌说书人。') })
+    expect(parsed?.prompt).toContain('你是毒舌说书人。')
+    expect(parsed?.prompt).not.toContain('你是专业的网络小说作家。')
+    expect(parsed?.prompt).not.toContain('narracat:prose')
+  })
+
+  test('锁死段落不受影响', async () => {
+    const parsed = await parseAgentFile(corePath, 'chapter-writer', { 'writer-persona': entry('新人设。') })
+    expect(parsed?.prompt).toContain('## 停下来的情况')
+    expect(parsed?.prompt).toContain('- 读不到就停。')
+  })
+
+  test('override 指向不存在的块时静默跳过，官方原文照常', async () => {
+    const parsed = await parseAgentFile(corePath, 'chapter-writer', { 'no-such-block': entry('x') })
+    expect(parsed?.prompt).toContain('你是专业的网络小说作家。')
+  })
+})
+
+describe('assembleAgentSkills 因散文覆盖而生成定义', () => {
+  let corePath = ''
+
+  beforeEach(async () => {
+    corePath = await mkdtemp(join(tmpdir(), 'agent-core-'))
+    await mkdir(join(corePath, 'agents'), { recursive: true })
+    await writeFile(
+      join(corePath, 'agents', 'chapter-writer.md'),
+      `---\nname: chapter-writer\ndescription: writes\ntools: Read\n---\n\n<!-- narracat:prose id="writer-persona" title="人设" -->\n官方人设。\n<!-- /narracat:prose -->\n`,
+      'utf-8',
+    )
+  })
+
+  afterEach(async () => {
+    await rm(corePath, { recursive: true, force: true })
+  })
+
+  test('挂载与默认一致但存在 prose override 时仍要生成覆盖', async () => {
+    const agents = await assembleAgentSkills({
+      agentCorePath: corePath,
+      agentIds: ['chapter-writer'],
+      proseOverrides: {
+        'writer-persona': {
+          text: '我的人设。',
+          baseText: '官方人设。',
+          baseEngineVersion: '4.0.162',
+          updatedAt: '2026-08-06T10:00:00+08:00',
+        },
+      },
+    })
+
+    expect(agents['chapter-writer']?.prompt).toContain('我的人设。')
+  })
+
+  // 注入侧必须是**绝对**路径——模型拿它去 Read 真实文件，相对路径读不到。
+  // 这条与 official-skill-body.test.ts 的「展示侧相对化」成对存在：同一个变量两种语义，
+  // 两个函数长得像、极易被顺手「统一」，统一到哪一边都会坏一边（模型读不到文件，或作者
+  // 的截图泄露本机路径），而少了这两条测试的任意一条都不会变红。改动 engine-path-vars.ts 前先读这里。
+  test('注入侧把引擎路径变量展开为绝对路径（两种书写形态都吃）', async () => {
+    await writeFile(
+      join(corePath, 'agents', 'chapter-writer.md'),
+      `---\nname: chapter-writer\ndescription: writes\ntools: Read\n---\n\n` +
+        `契约见 \${CLAUDE_PLUGIN_ROOT}/docs/contracts/world-guided.md，\n` +
+        `素材见 $CLAUDE_PLUGIN_ROOT/skills/novel-web-craft/SKILL.md。\n`,
+      'utf-8',
+    )
+
+    const agents = await assembleAgentSkills({
+      agentCorePath: corePath,
+      agentIds: ['chapter-writer'],
+      authorRequestsByAgent: { 'chapter-writer': ['随便一条要求，只为触发组装'] },
+    })
+
+    const prompt = agents['chapter-writer']?.prompt ?? ''
+    expect(prompt).toContain(`${corePath}/docs/contracts/world-guided.md`)
+    expect(prompt).toContain(`${corePath}/skills/novel-web-craft/SKILL.md`)
+    expect(prompt).not.toContain('CLAUDE_PLUGIN_ROOT')
   })
 })

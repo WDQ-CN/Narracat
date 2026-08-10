@@ -67,6 +67,20 @@ jobs:
   # `bun test ./agent-core/narracat/eval`，路径不存在时 bun test 以非零退出码失败，
   # 故整 job 摘除而非留空跑红。
 
+  agent-core-prose-blocks-guard:
+    name: Agent Core Prose Blocks Guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # 块 id 是作者「设置页改写作指令」覆盖的存储键：谁手滑改了 id 或漏登记 lock，
+      # 全世界作者对该块的存量设置会静默孤儿化。零 runtime 依赖，直接 node 跑；
+      # 校验逻辑与本地 `bun --no-cache run check:architecture` 同一入口，见 scripts/check-prose-blocks.mjs。
+      - name: Run prose blocks guard
+        run: node scripts/check-prose-blocks.mjs
+
   agent-core-mcp-build:
     name: Agent Core MCP Build
     runs-on: ubuntu-latest

@@ -42,11 +42,14 @@ export interface NarraCatAgentCoreDiagnostics {
   availableSkills: string[]
   /** 按 Agent 绑定的可挂载 Skill 集（agentId → 该 Agent 可挂的 Skill 名数组）。
    *  来源是 SKILL.md frontmatter `mount-agents: [agent-id, ...]`——同一 Skill 对不同 Agent 可呈现为可挂或不出现。
-   *  每个内置 Agent 一律有键（无人声明时为空数组）；官方默认挂载与内部 Skill 不在此列。挂载 UI 的「可新增」池按 agentId 取这里。 */
+   *  每个内置 Agent 一律有键（无人声明时为空数组）。**Skill 挂载 UI 已整体退役（ADR-0020 2026-08-07 补记），
+   *  当前无消费者**——这是纯诊断字段，保留供 issue #510（官方 Skill 是否真到达模型）实证结论出来前继续观察。 */
   mountableSkillsByAgent: Record<string, string[]>
-  /** 各 Skill 的 SKILL.md token 体量估算（skillId → token），供预加载预算护栏计算 */
+  /** 各 Skill 的 SKILL.md token 体量估算（skillId → token）。原为预加载预算护栏计算所用，
+   *  该护栏随挂载 UI 一并退役；当前无消费者，保留供 #510。 */
   skillTokenEstimates: Record<string, number>
-  /** 各 Skill frontmatter 声明的触发点（skillId → 触发场景数组，#260 规范），仅按需型有；供按需挂载触发提示与 UI 展示 */
+  /** 各 Skill frontmatter 声明的触发点（skillId → 触发场景数组，#260 规范），仅按需型有。原为按需挂载
+   *  触发提示所用，该 UI 已退役；当前无消费者，保留供 #510。 */
   skillTriggers: Record<string, string[]>
 }
 

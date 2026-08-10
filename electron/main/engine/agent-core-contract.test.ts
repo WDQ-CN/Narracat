@@ -125,7 +125,9 @@ describe('readNarraCatAgentCoreDiagnostics', () => {
     expect(diagnostics.checks.every((check) => check.ok)).toBe(true)
     expect(diagnostics.agentSkills['outline-architect']).toEqual(['novel-structure'])
     expect(diagnostics.agentSkills['chapter-writer']).toEqual([])
-    // 本期无官方可挂载（c）类数据：每个内置 Agent 都有键，可挂载集一律为空。
+    // mountableSkillsByAgent 是无消费者的诊断字段（Skill 挂载 UI 已退役，见 ADR-0020 2026-08-07 补记，
+    // 保留供 #510）：fixture 未声明 mount-agents，仍要求每个内置 Agent 都有键、值为空数组——这是在验
+    // 「解析出的形状是否完整」，不代表挂载功能仍在生效。
     expect(Object.keys(diagnostics.mountableSkillsByAgent).sort()).toEqual([
       'chapter-writer',
       'continuity-editor',
@@ -144,7 +146,7 @@ describe('readNarraCatAgentCoreDiagnostics', () => {
     expect(diagnostics.skillTriggers['novel-structure']).toBeUndefined()
   })
 
-  test('binds mountable skills to the agents named in SKILL.md mount-agents, ignoring unknown agents', async () => {
+  test('parses SKILL.md mount-agents frontmatter into the mountableSkillsByAgent diagnostics field (no runtime effect — Skill 挂载已退役), ignoring unknown agents', async () => {
     const root = await makeAgentCoreRoot('mount-agents')
     await writeRequiredAgentCoreFiles(root)
     // novel-style-reference 声明适配 chapter-writer + 一个不存在的 Agent → 只进 chapter-writer

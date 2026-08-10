@@ -7,9 +7,8 @@ import {
   lintBriefForSystemWords,
 } from './engine-hooks'
 
-// 行为基线对齐：agent-core/narracat/hooks/scripts/check-chapter-wordcount.sh
-// 与 check-brief-lint.sh（含 agent-core/narracat/scripts/check-brief-lint.test.mjs
-// 的既有用例语义）。
+// 钩子判据的唯一测试面：前身 shell 钩子（check-chapter-wordcount.sh / check-brief-lint.sh）
+// 及其 .test.mjs 已随 claude-sdk 退役删除，其用例语义已并入本文件。
 
 describe('checkChapterWordcount', () => {
   test('非章节路径 → undefined（bible/premise.md）', () => {
@@ -276,9 +275,8 @@ describe('lintBriefForSystemWords', () => {
   })
 })
 
-// 行为基线对齐：agent-core/narracat/hooks/scripts/check-chapter-writer-output.sh
-// （含内嵌 python 段）与 check-memory-keeper-receipt.sh；对照表 =
-// agent-core/narracat/scripts/check-chapter-writer-output.test.mjs。
+// 同上：前身 check-chapter-writer-output.sh（含内嵌 python 段）与 check-memory-keeper-receipt.sh
+// 及其 .test.mjs 已删除，用例语义并入以下两组。
 
 const DUOREN_OUTLINE = '两人对峙。沈砚和陆昭同处，关键冲突来自质问与试探。'
 const DUOREN_CARDS = [{ name: '沈砚' }, { name: '陆昭' }]

@@ -685,7 +685,8 @@ async function resolveChapterVolume(projectRoot: string, chapter: number): Promi
 
 /**
  * 原子提交：staging → manuscript/vol-VV/ch-NNN.md（同文件系统 rename 原子）；
- * 随手清理同章任务书与 brief-lint marker 文件（`hooks/scripts/check-brief-lint.sh` 遗留，不清会在目录里堆积）。
+ * 随手清理同章任务书与 brief-lint marker 文件（marker 是已删除的 shell 钩子遗留——现钩子把状态存在
+ * App 侧内存里、不再落 marker；这段清理只为扫掉存量老书目录里的残留文件，新链路无产出也无害）。
  * 无 staging（作者手改 / 存量老书链路 / 该章已提交过）→ 静默跳过，不算错误。
  */
 async function promoteStagingManuscript(

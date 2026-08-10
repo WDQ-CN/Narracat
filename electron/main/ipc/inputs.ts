@@ -2,7 +2,7 @@
  * IPC 跨域共用基础设施叶子模块（评审修复：app.ts ↔ agent.ts 模块级循环 import）。
  *
  * 本文件不 import 任何同层域文件（app/novel/agent/packs/skills/chat.ts），只依赖更底层的
- * config.ts/notifications.ts/skills/skill-mount-store.ts/native-notifications.ts 等叶子模块，
+ * config.ts/notifications.ts/native-notifications.ts 等叶子模块，
  * 保证自己是依赖图上的叶子——app.ts 与 agent.ts 都从这里单向导入，不再互相依赖。
  *
  * 内容=原 app.ts 中「agent.ts 需要消费」的那批函数（含其内部依赖 configPath/isRecord）逐字迁出，
@@ -11,7 +11,6 @@
 import { app, BrowserWindow } from 'electron'
 import { getConfigPath, readAppConfig, type AppConfig } from '../config.ts'
 import { notificationsPath } from '../notifications.ts'
-import { skillMountStorePath } from '../engine/skill-mount-store.ts'
 import { showElectronNativeResultNotification } from '../native-notifications.ts'
 import type { ResultNotification, ResultNotificationList } from '@shared/types/notifications'
 
@@ -21,10 +20,6 @@ export function configPath(): string {
 
 export function resultNotificationsPath(): string {
   return notificationsPath(app.getPath('userData'))
-}
-
-export function skillMountsPath(): string {
-  return skillMountStorePath(app.getPath('userData'))
 }
 
 export function userDataPath(): string {

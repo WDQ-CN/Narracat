@@ -1,13 +1,16 @@
-// 行为基线 = agent-core/narracat/hooks/scripts/check-chapter-wordcount.sh
-// 与 check-brief-lint.sh，SDK 路径仍跑 shell 版，pi 路径走本库（阶段2切片④）；
-// 两边行为漂移以 shell 版为准修正本库。
+// 章节字数提示 / 任务书系统词硬门的判据本体（挂载见 pi-engine-hooks.ts）。
+//
+// 前身是引擎侧 shell 钩子（`agent-core/narracat/hooks/scripts/check-chapter-wordcount.sh`
+// 与 `check-brief-lint.sh`），由 claude-sdk 的 PostToolUse hook 承载；pi 无 hook 概念，判据
+// 逐字移植进本库后 shell 版整目录删除——**本库自此是唯一实现，不存在需要对齐的第二份**。
+// 想看被移植前的原版去 git 历史（tag `last-claude-sdk` 之前）。
 //
 // 纯函数纪律：零 IO（不 readFile、不做任何系统调用），`now` 参数缺省
 // `Date.now()` 是唯一例外；零第三方依赖。
 
 const CHAPTER_MANUSCRIPT_PATH_REGEX = /manuscript\/(vol-[0-9]+\/)?ch-?[0-9]+\.md$/
 const BRIEF_STAGING_PATH_REGEX = /\.narracat\/staging\/ch-[^/]*\.brief\.md$/
-// 与 check-brief-lint.sh 的 FORBIDDEN ERE 逐字对齐（新增系统词须两处同步）
+// 系统词表（原 check-brief-lint.sh 的 FORBIDDEN ERE 逐字移植；shell 版已删，此处是唯一一份）
 const BRIEF_FORBIDDEN_PATTERN =
   /novel_[a-z_]+|craft_pack_hints|style_directive|through_line_anchor|previous_chapter_briefs|ending_snippet|payoff_beat|storyline_focus|foreshadowing_touch|foreshadowing_due|word_count_range|chapter_outline|style_examples|reference_path|pack_id|pack_path|manuscript_path|outline_path|semantic_context|state_changes|planned_state_changes|heartbeat_moment|continuation_hook|emotional_tone|character_cards|opening_snippet|core_foreshadowing|core_experience|current_arc_tension|current_antagonist_agent|mechanism_note|arc_summaries|matched_triggers|key_events|world_rules|derived_relationships|character_relationships|\b(canon|tentative|open)\b|[A-Z]-[A-Z0-9]+(-[A-Z0-9]+)*/
 const BRIEF_MARKER_FRESH_MS = 5 * 60_000
@@ -115,10 +118,10 @@ export function lintBriefForSystemWords(args: BriefLintArgs): BriefLintResult {
   }
 }
 
-// 行为基线 = agent-core/narracat/hooks/scripts/check-chapter-writer-output.sh（含内嵌 python 段）
-// 与 check-memory-keeper-receipt.sh；正则/文案/判据顺序逐字移植，语义对照表见
-// agent-core/narracat/scripts/check-chapter-writer-output.test.mjs。IO（找文件/读 state.yaml/
-// 读 context-pack）由 engine-subagent-gates.ts 的壳负责，本节两函数保持零 IO。
+// 写手出稿门 / memory-keeper 回执门的判据本体（前身同样是已删除的引擎 shell 钩子
+// check-chapter-writer-output.sh 与 check-memory-keeper-receipt.sh，正则/文案/判据顺序逐字
+// 移植，语义对照现由本目录 engine-hooks.test.ts 承担）。IO（找文件/读 state.yaml/读
+// context-pack）由 engine-subagent-gates.ts 的壳负责，本节两函数保持零 IO。
 
 const HTML_COMMENT_REGEX = /<!--[\s\S]*?-->/g
 const HAS_CJK_REGEX = /[一-鿿]/

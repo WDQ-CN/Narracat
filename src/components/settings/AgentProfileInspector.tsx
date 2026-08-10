@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { cn } from '@/lib/cn'
-import { AgentSkillMountPanel } from './AgentSkillMountPanel'
+import { AgentProseBlockPanel } from './AgentProseBlockPanel'
+import { AuthorRequestPanel } from './AuthorRequestPanel'
+import { OfficialSkillSection } from './OfficialSkillSection'
 
 const outlineArchitectImageUrl = new URL('../../assets/illustrations/agents/outline-architect.webp', import.meta.url).href
 const worldCuratorImageUrl = new URL('../../assets/illustrations/agents/world-curator.webp', import.meta.url).href
@@ -50,22 +52,7 @@ export const NARRACAT_AGENT_PROFILES: NarraCatAgentProfile[] = [
 
 const DEFAULT_AGENT_ID = 'chapter-writer'
 
-export function AgentProfileInspector({
-  initialAgentId = DEFAULT_AGENT_ID,
-  skillsByAgentId,
-  mountableSkillsByAgent,
-  skillTokenEstimates,
-  skillTriggers,
-}: {
-  initialAgentId?: string
-  skillsByAgentId?: Record<string, string[]>
-  /** 按 Agent 绑定的可挂载 Skill 集（diagnostics.mountableSkillsByAgent）；按选中 Agent 取该 Agent 的可挂池 */
-  mountableSkillsByAgent?: Record<string, string[]>
-  /** 各 Skill 的 token 体量估算（diagnostics.skillTokenEstimates），预加载预算护栏用 */
-  skillTokenEstimates?: Record<string, number>
-  /** 各 Skill 声明的触发点（diagnostics.skillTriggers），按需挂载选项与触发场景展示用 */
-  skillTriggers?: Record<string, string[]>
-} = {}) {
+export function AgentProfileInspector({ initialAgentId = DEFAULT_AGENT_ID }: { initialAgentId?: string } = {}) {
   const [selectedAgentId, setSelectedAgentId] = useState(initialAgentId)
   const selectedAgent =
     NARRACAT_AGENT_PROFILES.find((agent) => agent.id === selectedAgentId) ?? NARRACAT_AGENT_PROFILES[0]
@@ -115,7 +102,10 @@ export function AgentProfileInspector({
         id={`agent-profile-panel-${selectedAgent.id}`}
         role="tabpanel"
         aria-labelledby={`agent-profile-tab-${selectedAgent.id}`}
-        className="space-y-8 animate-agent-profile-enter"
+        // 底部留白：外层设置页容器只给 p-6（24px），比本面板 space-y-8 的块间距（32px）还小，
+        // 滚到底时最后一块会紧贴容器下沿（章节写手最明显——只有它有第三块「它自带的本事」，
+        // 页面最长）。这里补足到 48px，让收尾比块间距从容。
+        className="space-y-8 pb-6 animate-agent-profile-enter"
         data-agent-profile-panel={selectedAgent.id}
       >
         <div className="grid justify-items-center px-4 py-2 text-center">
@@ -142,13 +132,11 @@ export function AgentProfileInspector({
           </p>
         </div>
 
-        <AgentSkillMountPanel
-          agentId={selectedAgent.id}
-          defaultSkills={skillsByAgentId?.[selectedAgent.id] ?? []}
-          mountableSkills={mountableSkillsByAgent?.[selectedAgent.id] ?? []}
-          skillTokenEstimates={skillTokenEstimates}
-          skillTriggers={skillTriggers}
-        />
+        <AgentProseBlockPanel agentId={selectedAgent.id} agentName={selectedAgent.name} />
+
+        <AuthorRequestPanel agentId={selectedAgent.id} />
+
+        <OfficialSkillSection agentId={selectedAgent.id} />
       </div>
     </section>
   )

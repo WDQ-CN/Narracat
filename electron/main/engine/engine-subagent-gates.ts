@@ -1,13 +1,12 @@
 /**
  * pi 子 agent 出稿/回执质量门（阶段2切片⑤ Task 6）：IO 壳。判据本体在 engine-hooks.ts 的
- * judgeChapterWriterOutput / judgeMemoryKeeperReceipt（零 IO 纯函数）；本文件只负责按 shell
- * 版同款路径规则找文件、读文本，把结果喂给判据函数，接进 pi Task 工具的 `gate` 缝
- * （pi-subagent.ts CreateTaskToolArgs.gate）。
+ * judgeChapterWriterOutput / judgeMemoryKeeperReceipt（零 IO 纯函数）；本文件只负责找文件、
+ * 读文本，把结果喂给判据函数，接进 pi Task 工具的 `gate` 缝（pi-subagent.ts
+ * CreateTaskToolArgs.gate）。
  *
- * 行为基线 = agent-core/narracat/hooks/scripts/check-chapter-writer-output.sh 与
- * check-memory-keeper-receipt.sh：任何 IO 失败（state.yaml/config.yaml 缺失或损坏、正文/回执/
- * context-pack 文件缺失）静默降级成对应参数 undefined 或直接 `[]`，恒不 throw——对齐两个 .sh
- * 恒 `exit 0` 的语义，质量门本身不能成为 run 中断点（fail-open）。
+ * fail-open 是硬语义：任何 IO 失败（state.yaml/config.yaml 缺失或损坏、正文/回执/context-pack
+ * 文件缺失）静默降级成对应参数 undefined 或直接 `[]`，恒不 throw——沿用前身 shell 钩子恒
+ * `exit 0` 的定性，质量门本身不能成为 run 中断点。
  *
  * 红线：本文件住 electron/main/engine/ 下，不许 import pi 包（check:architecture 分层纪律）。
  */

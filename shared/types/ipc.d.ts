@@ -17,7 +17,8 @@ import type {
   EmbeddingHealthProbeResult,
   NarraCatAgentCoreDiagnostics,
 } from './narracat'
-import type { AgentSkillMount, CommitUserSkillResult, PreviewUserSkillResult, UserSkill } from './skill-mount'
+import type { ProseBlockView } from './prose-block'
+import type { AuthorRequest } from './author-request'
 import type {
   CapabilityPackSummary,
   ChapterCapabilityReceiptData,
@@ -113,13 +114,7 @@ export type {
   EmbeddingSelfTestReport,
   NarraCatAgentCoreDiagnostics,
 } from './narracat'
-export type {
-  AgentSkillMount,
-  CommitUserSkillResult,
-  PreviewUserSkillResult,
-  SkillMountMode,
-  UserSkill,
-} from './skill-mount'
+export type { AuthorRequest } from './author-request'
 export type {
   CreateNovelProjectBackupDialogResult,
   NovelProjectBackupManifest,
@@ -377,15 +372,15 @@ export interface ElectronApi {
   testConnection: (provider: ProviderId) => Promise<ConnectionTestResult>
   listProviderModels: (provider: ProviderId) => Promise<ProviderModelListResult>
   getNarraCatDiagnostics: () => Promise<NarraCatAgentCoreDiagnostics>
-  listSkillMounts: () => Promise<AgentSkillMount[]>
-  setSkillMount: (mount: AgentSkillMount) => Promise<AgentSkillMount[]>
-  removeSkillMount: (input: { agentId: string; skillId: string }) => Promise<AgentSkillMount[]>
-  resetAgentSkillMounts: (input: { agentId: string }) => Promise<AgentSkillMount[]>
-  listUserSkills: () => Promise<UserSkill[]>
-  previewUserSkillImport: (input: { agentId: string }) => Promise<PreviewUserSkillResult>
-  commitUserSkillImport: (input: { agentId: string; folderPath: string }) => Promise<CommitUserSkillResult>
-  uninstallUserSkill: (input: { id: string }) => Promise<UserSkill[]>
-  readUserSkillBody: (input: { id: string }) => Promise<string>
+  readOfficialSkillBody: (input: { skillId: string }) => Promise<string>
+  listProseBlocks: (input: { agentId: string }) => Promise<ProseBlockView[]>
+  setProseBlock: (input: { agentId: string; id: string; text: string }) => Promise<ProseBlockView[]>
+  resetProseBlock: (input: { agentId: string; id: string }) => Promise<ProseBlockView[]>
+  resetAllProseBlocks: (input: { agentId: string }) => Promise<ProseBlockView[]>
+  listAuthorRequests: (input: { agentId: string }) => Promise<AuthorRequest[]>
+  addAuthorRequest: (input: { agentId: string; text: string }) => Promise<AuthorRequest[]>
+  updateAuthorRequest: (input: { agentId: string; id: string; text: string }) => Promise<AuthorRequest[]>
+  removeAuthorRequest: (input: { agentId: string; id: string }) => Promise<AuthorRequest[]>
   listCapabilityPacks: () => Promise<CapabilityPackSummary[]>
   previewCapabilityPackImport: () => Promise<PreviewImportPackResult | { status: 'canceled' }>
   confirmCapabilityPackImport: (input: { token: string }) => Promise<ImportPackResult>

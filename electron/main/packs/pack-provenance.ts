@@ -1,7 +1,7 @@
 // PackProvenanceStore + 事件日志：造包中心「发布铸版」的溯源与审计尾巴（B2 刀3 Task 7）。
 //
 // provenance：记录每个用户包版本的本机来源（作者原创 / 从自己作品学得 / 从外部作品学得）+ 草稿/学习来源关联，
-// 单 JSON 文件 `userData/pack-provenance.json`，key=`<id>@<version>`——与 skill-mount-store.ts 同款
+// 单 JSON 文件 `userData/pack-provenance.json`，key=`<id>@<version>`——与 prose-override-store.ts 同款
 // 「读改写」单文件模式。
 //
 // fail-soft/fail-closed 分野（PR#477 外审 P1-4）：文件不存在（ENOENT）是合法初始态（从未发布/导入过任何

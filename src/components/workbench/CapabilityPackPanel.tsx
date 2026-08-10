@@ -21,7 +21,7 @@ import type {
   PlanningCapabilityReceiptData,
 } from '@shared/types/capability-pack'
 
-// 方型圆角图标容器：与设置页 CapabilityPackLibraryPanel / AgentSkillMountPanel 共享的行图标词汇。
+// 方型圆角图标容器：与设置页 CapabilityPackLibraryPanel 共享的行图标词汇。
 const PACK_ICON_TILE_CLASS = 'flex size-10 shrink-0 items-center justify-center rounded-row'
 
 // 页头对齐工作台内容区既有规范（WorkbenchObjectHeader / WorkbenchStatusPanel）：h-14、纯标题、可拖拽窗口区。

@@ -24,8 +24,6 @@ describe('NarraCat Agent Core 打包白名单', () => {
       'commands/write.md',
       'schemas/ReviewReport.json',
       'templates/premise-template.md',
-      'hooks/hooks.json',
-      'hooks/scripts/check-chapter-wordcount.sh',
       'skills/novel-web-craft/SKILL.md',
       // 真人范例语料已迁往官方只读语料服务 narracat-corpus-service，不再随包分发（2026-08-05）
       'skills/novel-style-reference/SKILL.md',
@@ -55,6 +53,10 @@ describe('NarraCat Agent Core 打包白名单', () => {
       // claude-sdk 适配器工件已随 SDK 退役（拆旧刀5）：plugin.json 不再入包
       '.claude-plugin/plugin.json',
       '.claude-plugin',
+      // shell 钩子已整目录删除（钩子判据 TS 化在 App 侧）：hooks/ 若复现也不入包
+      'hooks/hooks.json',
+      'hooks/scripts/check-chapter-wordcount.sh',
+      'hooks',
       '.gitignore',
       '.DS_Store',
       'eval/_runs/run-x/drafts/fixture-01.md',
@@ -73,7 +75,7 @@ describe('NarraCat Agent Core 打包白名单', () => {
 
   test('放行白名单路径的祖先目录以便递归拷贝', () => {
     // fs.cp 的 filter 需要对祖先目录返回 true，否则后代被整棵剪掉
-    for (const rel of ['docs', 'mcp-server', 'skills', 'hooks', 'packs']) {
+    for (const rel of ['docs', 'mcp-server', 'skills', 'packs']) {
       expect({ rel, keep: shouldBundleAgentCorePath(rel) }).toEqual({ rel, keep: true })
     }
     // 但 docs 下非 contracts 的子目录仍被挡掉

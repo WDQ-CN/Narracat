@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
-import { readFile, readdir, realpath } from 'node:fs/promises'
-import { join, relative, resolve } from 'node:path'
+import { realpath } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import { resolveLightModel, resolvePrimaryModel } from '@shared/lib/model-slots'
 import type { AppConfig } from '../../config.ts'
 import { resolveNovelAgentsGuide } from '../runtime/novel-agents-guide.ts'
@@ -18,42 +18,6 @@ export interface AgentSessionFingerprintInput {
   /** 本次 run 的 runtime 标识（adapter id）：切 runtime 必须触发会话失效，session id 不跨 runtime 复用。 */
   runtimeId: 'claude-sdk' | 'pi'
   agentCoreVersion: string
-  skillMountStorePath?: string
-  userDataPath?: string
-}
-
-async function readOptionalFile(path: string | undefined): Promise<string> {
-  if (!path) return ''
-  return readFile(path, 'utf8').catch(() => '')
-}
-
-async function hashDirectory(root: string | undefined): Promise<string> {
-  if (!root) return ''
-  const rootPath = root
-  const hash = createHash('sha256')
-
-  async function visit(directory: string): Promise<void> {
-    let entries
-    try {
-      entries = await readdir(directory, { withFileTypes: true })
-    } catch {
-      return
-    }
-    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
-      const path = join(directory, entry.name)
-      if (entry.isDirectory()) {
-        await visit(path)
-      } else if (entry.isFile()) {
-        hash.update(relative(rootPath, path).normalize('NFC'))
-        hash.update('\0')
-        hash.update(await readFile(path).catch(() => Buffer.alloc(0)))
-        hash.update('\0')
-      }
-    }
-  }
-
-  await visit(rootPath)
-  return hash.digest('hex')
 }
 
 export async function createAgentSessionCompatibilityFingerprint(
@@ -62,13 +26,6 @@ export async function createAgentSessionCompatibilityFingerprint(
   const canonicalProjectPath = input.projectPath
     ? await realpath(input.projectPath).catch(() => resolve(input.projectPath!))
     : undefined
-  const skillMounts = await readOptionalFile(input.skillMountStorePath)
-  const userSkillIndex = await readOptionalFile(
-    input.userDataPath ? join(input.userDataPath, 'user-skills.json') : undefined,
-  )
-  const userSkillContentHash = await hashDirectory(
-    input.userDataPath ? join(input.userDataPath, 'user-skills') : undefined,
-  )
   const novelAgentsGuide = (await resolveNovelAgentsGuide(input.projectPath)) ?? ''
   const primary = resolvePrimaryModel(input.config)
   const light = resolveLightModel(input.config)
@@ -81,9 +38,6 @@ export async function createAgentSessionCompatibilityFingerprint(
     apiKeyGeneration: primary ? (input.config.apiKeyMetadata[primary.provider]?.updatedAt ?? null) : null,
     agentCoreVersion: input.agentCoreVersion,
     sessionContractRevision: AGENT_SESSION_CONTRACT_REVISION,
-    skillMounts,
-    userSkillIndex,
-    userSkillContentHash,
     novelAgentsGuide,
     mode: input.mode,
     loadNarraCatRuntime: input.loadNarraCatRuntime,

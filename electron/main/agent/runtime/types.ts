@@ -22,7 +22,11 @@ export interface RuntimeRunConfig {
   allowedTools?: string[]
   disallowedTools?: string[]
   canUseTool?: unknown
-  /** 用户挂载组装出的 Agent 覆盖（assembleAgentSkills 产物），叠加到 plugin frontmatter 默认之上 */
+  /**
+   * 作者要求 + 散文覆盖组装出的 Agent 覆盖（assembleAgentSkills 产物）。同名整体覆盖引擎默认
+   * agent 定义（非字段合并），无覆盖的 agent 不进这个 record、维持引擎默认。Skill 挂载体系已退役，
+   * 这里不再有挂载相关内容。
+   */
   agents?: Record<string, unknown>
   /** 续接既有 runtime 会话：传该会话此前经 readSessionId 读到的 session id（resumed-command 路径用）。 */
   resume?: string

@@ -169,9 +169,6 @@ narracat/
 │   ├── novel-memory-integration/   #   记忆查询指南（主会话）
 │   ├── novel-style-reference/      #   真人写作范例 corpus（带机制注解）
 │   └── novel-reference-analysis-method/   #   参考作品分析方法论（仅 /narracat:reference 显式调用）
-├── hooks/                          # 旧运行时 hook 格式遗留物，见下方说明
-│   ├── hooks.json                  #   SubagentStop + PostToolUse 事件定义（全部 command 脚本）
-│   └── scripts/                    #   参照脚本（产物存在性 / receipt 核对 / 字数检查）
 ├── schemas/                        # 11 个数据契约（SSOT）
 │   ├── writing-context-pack.json   #   写作上下文包 — builder 产出，章节写作的唯一输入
 │   ├── review-report.json          #   审校提交 — novel_submit_review 参数契约
@@ -191,7 +188,7 @@ narracat/
 └── docs/                           # 设计文档与规格
 ```
 
-`hooks/` 是旧运行时的 hook 格式遗留物，现行运行时不执行；等价校验逻辑已在 App 侧以 TypeScript 重实现，这里的 `hooks.json` + `scripts/` 仅保留作行为基线参照，不是当前生效机制。
+引擎不再持有 `hooks/` 目录：旧运行时的 hook 格式遗留物已整体删除，等价校验逻辑（产物存在性 / receipt 核对 / 字数 / 任务书系统词）在 App 侧以 TypeScript 实现，由 pi runtime 挂载。
 
 ## 开发
 

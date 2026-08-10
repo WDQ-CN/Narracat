@@ -47,13 +47,13 @@ export interface AgentRunManagerDeps {
   agentCoreManifestExists?: (agentCorePath: string) => boolean
   readNarraCatCommandFile?: ReadNarraCatCommandFile
   /**
-   * run 启动时组装挂载的 SDK Agent 覆盖（官方挂载 + 用户自定义 Skill 正文 inline）；
-   * 缺省读 SkillMountStore + UserSkillStore + diagnostics。返回 { agents }。
+   * run 启动时组装作者调整的 Agent 覆盖（散文块覆盖 + 作者写的要求）；
+   * 缺省读 author-requests.json + prose-overrides.json。返回 { agents }。
    */
-  resolveAgentSkillOverrides?: (args: { agentCorePath: string; projectPath?: string }) => Promise<ResolvedRunAgentSkills>
-  /** 官方挂载持久化文件路径（默认 resolver 用），由 IPC 层注入 userData 路径 */
-  skillMountStorePath?: string
-  /** userData 根目录（默认 resolver 读用户 Skill 快照正文供 inline 用），由 IPC 层注入 */
+  resolveAgentSkillOverrides?: (args: { agentCorePath: string }) => Promise<ResolvedRunAgentSkills>
+  /** 是否启用默认 resolver，由 IPC 层注入以标记「非测试环境」（测试缺省走 no-op resolver） */
+  enableAuthorSkillOverrides?: boolean
+  /** userData 根目录（默认 resolver 读作者调整存量用），由 IPC 层注入 */
   userDataPath?: string
   sendEvent: (event: AgentEvent) => void | Promise<void>
   appRoot: string
@@ -205,12 +205,10 @@ export function createAgentRunManager(deps: AgentRunManagerDeps): AgentRunManage
   const NO_OP_SKILL_OVERRIDES: ResolvedRunAgentSkills = { agents: undefined }
   const resolveSkillOverrides =
     deps.resolveAgentSkillOverrides ??
-    (deps.skillMountStorePath
-      ? ({ agentCorePath, projectPath }: { agentCorePath: string; projectPath?: string }) =>
+    (deps.enableAuthorSkillOverrides
+      ? ({ agentCorePath }: { agentCorePath: string }) =>
           resolveAgentSkillOverrides({
             agentCorePath,
-            skillMountStorePath: deps.skillMountStorePath!,
-            projectPath,
             userDataPath: deps.userDataPath,
           })
       : async () => NO_OP_SKILL_OVERRIDES)
@@ -688,28 +686,12 @@ export function createAgentRunManager(deps: AgentRunManagerDeps): AgentRunManage
         const needsNarraCatRuntime =
           needsWriteNext || needsRecoverWrite || needsNarraCatCommand || isRuntimeStatusCommand(request)
 
-        // 用户挂载组装的 SDK Agent 覆盖（官方挂载 + 用户自定义 Skill 正文 inline）；失败降级为 undefined。
-        // 仅在「本次 run 会以 loadNarraCatRuntime 应用 agentSkillOverrides」的分支才注入用户 Skill——
-        // 除 needsNarraCatRuntime 的命令/状态分支外，还含「freeform 续聊已 resume 的 project-command 会话」
-        // 分支（该分支 needsNarraCatRuntime=false，却按 sdkSession.loadNarraCatRuntime 应用 overrides）；
-        // 若漏掉它，同一会话首轮有的用户 Skill 到续聊轮会静默掉线。各分支 projectPath 恒为
-        // request.projectPath ?? sdkSession.projectPath（命令 runner 不改写它）。
+        // 作者调整覆盖（散文块覆盖 + 作者写的要求）；失败降级为 undefined。两者都是作者对 Agent
+        // 本身的全局调整（存量落在 userData 根），与「本次 run 是否带项目/是否 resume」无关，
+        // 故不再按 projectPath/loadNarraCatRuntime 门控——每个 run 统一尝试组装。
         const resumeSessionForSkills = await compatibleSession(request.threadId, config)
-        const skillProjectPath = request.projectPath ?? resumeSessionForSkills?.projectPath
-        const isResumedProjectCommandFreeform =
-          request.command === 'freeform' &&
-          resumeSessionForSkills?.mode === 'project-command' &&
-          Boolean(resumeSessionForSkills.projectPath) &&
-          skillProjectPath === resumeSessionForSkills.projectPath &&
-          resumeSessionForSkills.loadNarraCatRuntime
-        // engineContext freeform（工作台评估流）fresh 起 session 也按引擎待遇应用 overrides（须注入用户 Skill）。
-        const isEngineContextFreeform =
-          request.command === 'freeform' && request.engineContext === true && Boolean(request.projectPath)
-        const willApplyOverridesWithRuntime =
-          needsNarraCatRuntime || isResumedProjectCommandFreeform || isEngineContextFreeform
         const { agents: agentSkillOverrides } = await resolveSkillOverrides({
           agentCorePath: currentAgentCorePath(),
-          projectPath: willApplyOverridesWithRuntime ? skillProjectPath : undefined,
         })
         if (!canContinueRun(runId, abortController)) {
           await finalizeCancelledPreparation(runId, abortController)

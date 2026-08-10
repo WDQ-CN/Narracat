@@ -1,5 +1,6 @@
 import { NARRACAT_ENGINE_AGENT_IDS } from './agent-core-contract.ts'
 import { parseAgentFile } from './assemble-agent-skills.ts'
+import type { ProseOverrideEntry } from '@shared/types/prose-block'
 
 export interface EngineAgentDefinition {
   description: string
@@ -30,9 +31,19 @@ function readOverride(value: unknown): EngineAgentDefinition | null {
 export async function resolveEngineAgentDefinitions({
   agentCorePath,
   overrides,
+  proseOverrides,
 }: {
   agentCorePath: string
   overrides?: Record<string, unknown>
+  /**
+   * 散文覆盖：这条默认路径本该也应用它，否则作者的调整只在 overrides 命中该 agentId 时生效。
+   *
+   * 现状：生产唯一调用方 pi/index.ts 从不传这个形参——它靠 assemble-agent-skills.ts 的
+   * `hasProseOverrides` 全局判定（见该文件 assembleOne 内注释）兜住正确性：只要存在任一散文覆盖，
+   * 全部 5 个 agent 都会在 overrides 里拿到条目，此处的默认路径因此永远不会在「有散文覆盖」的场景
+   * 下被触达。这个形参目前是死代码，不是「已生效但走另一条腿」。
+   */
+  proseOverrides?: Record<string, ProseOverrideEntry>
 }): Promise<Record<string, EngineAgentDefinition>> {
   const registry: Record<string, EngineAgentDefinition> = {}
   for (const agentId of NARRACAT_ENGINE_AGENT_IDS) {
@@ -44,7 +55,7 @@ export async function resolveEngineAgentDefinitions({
       registry[agentId] = override
       continue
     }
-    const parsed = await parseAgentFile(agentCorePath, agentId)
+    const parsed = await parseAgentFile(agentCorePath, agentId, proseOverrides)
     if (!parsed) {
       // 静默跳过会让派发端只看到「没这个 agent」，查不到是文件缺失还是 frontmatter 坏了——
       // 留一条警示（仍 fail-soft 不中断，其余 agent 照常进注册表）。

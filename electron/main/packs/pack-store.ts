@@ -3,7 +3,7 @@
 // 双轨版本制：官方内置包随引擎走（builtinPacksDir，只读，不可卸载/导出）；用户导入包锁版本，
 // 同 id 允许多版本并存于 userPacksDir/<id>@<version>/（多版本共存是设计，不是冲突）。
 //
-// 与 user-skill-store.ts 同构：store 不自解析 agentCorePath / userDataPath，由调用方（IPC 层）注入。
+// store 不自解析 agentCorePath / userDataPath，由调用方（IPC 层）注入。
 // fail-loud 校验序（见 pack-manifest.ts + 本文件 validatePackDirForInstall 注释）：manifest 可解析 →
 // 必填字段（含署名非空）→ 格式号 → id/version 安全令牌（拒路径穿越，见 isSafePackToken）→
 // id 非 official- 前缀 → 官方内置 id 冲突 → 同 id 同版本已装冲突

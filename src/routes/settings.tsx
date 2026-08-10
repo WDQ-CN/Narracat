@@ -675,14 +675,7 @@ export function SettingsRoute() {
                 )
               ) : null}
 
-              {activeSectionId === 'agents' ? (
-                <AgentProfileInspector
-                  skillsByAgentId={diagnostics?.agentSkills}
-                  mountableSkillsByAgent={diagnostics?.mountableSkillsByAgent}
-                  skillTokenEstimates={diagnostics?.skillTokenEstimates}
-                  skillTriggers={diagnostics?.skillTriggers}
-                />
-              ) : null}
+              {activeSectionId === 'agents' ? <AgentProfileInspector /> : null}
 
               {activeSectionId === 'packs' ? <CapabilityPackLibraryPanel /> : null}
 

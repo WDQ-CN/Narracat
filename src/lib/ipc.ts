@@ -65,7 +65,7 @@ import type {
   StoredWorkLocation,
 } from '@shared/types/ipc'
 import type { AgentQuestionAnswer } from '@/types/agent'
-import type { AgentSkillMount, CommitUserSkillResult, PreviewUserSkillResult, UserSkill } from '@shared/types/skill-mount'
+import type { AuthorRequest } from '@shared/types/author-request'
 import type { CharacterStateSnapshot } from '@shared/types/character-state'
 import type { MemoryGraphSnapshot } from '@shared/types/memory-graph'
 import type {
@@ -74,6 +74,7 @@ import type {
   ReadPlannedStateCountsInput,
   ReadPlannedStateInput,
 } from '@shared/types/planned-state'
+import type { ProseBlockView } from '@shared/types/prose-block'
 
 export function ping(): Promise<string> {
   return window.electron.ping()
@@ -119,49 +120,33 @@ export function getNarraCatDiagnostics(): Promise<NarraCatAgentCoreDiagnostics> 
   return window.electron.getNarraCatDiagnostics()
 }
 
-export function listSkillMounts(): Promise<AgentSkillMount[]> {
-  return window.electron.listSkillMounts()
-}
-
-export function setSkillMount(mount: AgentSkillMount): Promise<AgentSkillMount[]> {
-  return window.electron.setSkillMount(mount)
-}
-
-export function removeSkillMount(input: { agentId: string; skillId: string }): Promise<AgentSkillMount[]> {
-  return window.electron.removeSkillMount(input)
-}
-
-export function resetAgentSkillMounts(input: { agentId: string }): Promise<AgentSkillMount[]> {
-  return window.electron.resetAgentSkillMounts(input)
-}
-
-export function listUserSkills(): Promise<UserSkill[]> {
-  return window.electron.listUserSkills()
-}
-
 /**
- * 导入预检（#294）：开目录选择器 + 校验 + scripts 探测 + 撞名判定，不复制快照。
- * 返回 canceled / invalid / conflict / ready 判别联合；ready 携 folderPath + hasScripts 供后续 commit。
+ * 读官方 Skill 正文（详情弹窗展示，只读可见——ADR-0020 约束 1 的「不可查看」半条已推翻）；
+ * 读失败主进程降级返回空串，不抛。
  */
-export function previewUserSkillImport(input: { agentId: string }): Promise<PreviewUserSkillResult> {
-  return window.electron.previewUserSkillImport(input)
+export function readOfficialSkillBody(input: { skillId: string }): Promise<string> {
+  return window.electron.readOfficialSkillBody(input)
 }
 
-/**
- * 提交导入（#294）：接预检 ready 的 folderPath，复制快照 + 写记录。
- * 撞名/校验在主进程信任边界再查一遍；返回 invalid / conflict / ok 判别联合。
- */
-export function commitUserSkillImport(input: { agentId: string; folderPath: string }): Promise<CommitUserSkillResult> {
-  return window.electron.commitUserSkillImport(input)
+export function listAuthorRequests(input: { agentId: string }): Promise<AuthorRequest[]> {
+  return window.electron.listAuthorRequests(input)
 }
 
-export function uninstallUserSkill(input: { id: string }): Promise<UserSkill[]> {
-  return window.electron.uninstallUserSkill(input)
+export function addAuthorRequest(input: { agentId: string; text: string }): Promise<AuthorRequest[]> {
+  return window.electron.addAuthorRequest(input)
 }
 
-/** 读用户 Skill 快照 SKILL.md 正文（详情弹窗展示）；读失败主进程降级返回空串，不抛 */
-export function readUserSkillBody(input: { id: string }): Promise<string> {
-  return window.electron.readUserSkillBody(input)
+export function updateAuthorRequest(input: { agentId: string; id: string; text: string }): Promise<AuthorRequest[]> {
+  return window.electron.updateAuthorRequest(input)
+}
+
+export function removeAuthorRequest(input: { agentId: string; id: string }): Promise<AuthorRequest[]> {
+  return window.electron.removeAuthorRequest(input)
+}
+
+/** 读某 Agent 的散文块当前状态（当前生效正文 = userText ?? officialText），供预算展示等只读消费。 */
+export function listProseBlocks(input: { agentId: string }): Promise<ProseBlockView[]> {
+  return window.electron.listProseBlocks(input)
 }
 
 export function runEmbeddingHealthProbe(): Promise<EmbeddingHealthProbeResult> {

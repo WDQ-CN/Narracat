@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "ids": [
+    "continuity-editor-persona",
+    "memory-keeper-persona",
+    "outline-architect-persona",
+    "world-curator-persona",
+    "writer-persona"
+  ]
+}

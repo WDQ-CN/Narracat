@@ -36,7 +36,7 @@ import type {
   PreviewImportPackResult,
 } from '@shared/types/capability-pack'
 
-// 方型圆角图标容器：官方包统一品牌图标 / 用户包统一默认图标（对齐 AgentSkillMountPanel 的 SKILL_ICON_TILE_CLASS）
+// 方型圆角图标容器：官方包统一品牌图标 / 用户包统一默认图标
 const PACK_ICON_TILE_CLASS = 'flex size-10 shrink-0 items-center justify-center rounded-row'
 
 /** 已确认预览的待导入包（previewCapabilityPackImport 成功态），携带 token 供确认/取消。 */

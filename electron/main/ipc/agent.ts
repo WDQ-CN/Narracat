@@ -34,7 +34,6 @@ import {
   readRequiredString,
   resultNotificationsPath,
   showNativeResultNotificationIfNeeded,
-  skillMountsPath,
   userDataPath,
 } from './inputs.ts'
 
@@ -72,7 +71,7 @@ export function getAgentRuntimeCoordinator(): AgentRuntimeCoordinator {
           sendEvent,
           appRoot: app.getAppPath(),
           resourcesPath: process.resourcesPath,
-          skillMountStorePath: skillMountsPath(),
+          enableAuthorSkillOverrides: true,
           userDataPath: userDataPath(),
           createSessionFingerprint: async (input) => {
             const project = input.projectPath
@@ -82,8 +81,6 @@ export function getAgentRuntimeCoordinator(): AgentRuntimeCoordinator {
               ...input,
               projectId: project?.id,
               agentCoreVersion: NARRACAT_AGENT_CORE_VERSION_LOCK.version,
-              skillMountStorePath: skillMountsPath(),
-              userDataPath: userDataPath(),
             })
           },
           onSessionContextEstablished: sessionLifecycle.established,
