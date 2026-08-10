@@ -24,9 +24,11 @@ NarraCat 让智能先理解你的所想，再协助构建世界观、推进剧�
 
 </div>
 
-<img width="1920" height="1130" alt="image" src="https://github.com/user-attachments/assets/08e74a47-d7be-40f9-9d13-1a2ef467c6e5" />
-<img width="1920" height="1130" alt="image" src="https://github.com/user-attachments/assets/5453ab19-84c5-4dc8-886a-35d4ac48ea73" />
-<img width="1920" height="1130" alt="image" src="https://github.com/user-attachments/assets/5c2cac53-a400-44bb-b1bd-fd2f49334780" />
+<img width="1920" height="1130" alt="小说工作区" src="https://github.com/user-attachments/assets/08e74a47-d7be-40f9-9d13-1a2ef467c6e5" />
+<img width="1920" height="1130" alt="小说大纲" src="https://github.com/user-attachments/assets/5453ab19-84c5-4dc8-886a-35d4ac48ea73" />
+<img width="1920" height="1130" alt="和小说角色唠个嗑" src="https://github.com/user-attachments/assets/5c2cac53-a400-44bb-b1bd-fd2f49334780" />
+<img width="3840" height="2260" alt="小说记忆图谱" src="https://github.com/user-attachments/assets/de4031c5-e25c-4f03-9f08-46d2582007d6" />
+
 
 <!-- screenshots:end -->
 
