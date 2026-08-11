@@ -44,10 +44,16 @@ export default defineConfig({
         // （bindings 包按 __dirname 走目录搜索）内联进 bundle，搬家后 __dirname 语义错乱导致运行期找不到 .node 文件
         // pi 双包手动 externalize：内联会把 pi-ai 的 provider SDK 依赖树（@mistralai 等的可选 peer
         // @opentelemetry/api）拉进 bundle 导致构建失败，运行时从 node_modules 解析即可。
+        // electron-updater 手动 externalize：它运行时要读打包进 Resources 的 app-update.yml、
+        // 并 spawn 平台安装器，属于与 keytar / better-sqlite3 同类的「有运行时文件与进程行为」的包，
+        // 内联进 ESM bundle 要多做一层 CJS 转换、徒增静默失效面。运行时从 node_modules 解析即可
+        // （electron-builder 会把 dependencies 打进 asar）。
+        // 注意：本仓 externalizeDeps: true 实测不会外部化普通 dependencies，必须列在这里才生效。
         external: [
           'electron',
           'keytar',
           'better-sqlite3',
+          'electron-updater',
           '@mariozechner/pi-ai',
           '@mariozechner/pi-coding-agent',
         ],

@@ -1,0 +1,247 @@
+#!/usr/bin/env node
+/**
+ * 发版：打包（签名 + 公证）→ 人工确认闸 → 发布到 GitHub Release。
+ *
+ * Worker（workers/narracat-update/）按 <平台>/<文件名> 反代到 GitHub Release 资产，
+ * 版本号从文件名解析——发布的五个资产文件名必须与 releaseAssetFileNames() 严格一致。
+ *
+ * 发布顺序是硬要求：先建 draft → 传完全部资产 → 最后才 publish（见 publishRelease 注释）。
+ * 不勾 Pre-release：GitHub 的 releases/latest 不含预发布版，勾了 Worker 就找不到最新版，
+ * 整条自动更新链断掉。
+ *
+ * 发布用 GitHub CLI（gh），凭证 = gh 的登录态，跑前用 `gh auth status` 自查。
+ * 发布目标仓与本仓不同，所有 gh 调用都显式带 --repo。
+ */
+import { execFileSync } from 'node:child_process'
+import { createInterface } from 'node:readline/promises'
+import { existsSync, readFileSync, statSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { parse as parseYaml } from 'yaml'
+import { macFeedUrl, RELEASE_REPO, releaseAssetFileNames, releaseTag } from './update-feed.mjs'
+import { resolveClientBuildVersion } from './client-build-version.mjs'
+import { loadEnvFiles, runPackageRc } from './package-rc.mjs'
+
+const scriptDir = dirname(fileURLToPath(import.meta.url))
+const repoRoot = resolve(scriptDir, '..')
+
+export function createReleasePlan({ clientVersion, distDir = join(repoRoot, 'dist') }) {
+  return {
+    repo: RELEASE_REPO,
+    tag: releaseTag(clientVersion),
+    title: `NarraCat ${clientVersion}（内测版）`,
+    // 不勾 Pre-release：GitHub 的 releases/latest 不含预发布版，勾了本 Worker
+    // 就找不到最新版，整条自动更新链断掉。「内测」二字放标题表达。
+    prerelease: false,
+    assets: releaseAssetFileNames(clientVersion).map((name) => join(distDir, name)),
+  }
+}
+
+function formatBytes(bytes) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / 1024).toFixed(1)} KB`
+}
+
+/**
+ * 非交互环境提前拦死。抽成纯函数便于单测。
+ * 为什么必须拦：`readline/promises` 的 `question()` 在 stdin 直接 EOF（`< /dev/null`、CI、管道）时
+ * **永不 resolve**，Node 会在 stdin 关闭后以 **exit code 0** 静默退出——既不上传（安全），
+ * 也不报错，看起来像「成功」。而此时签名 + 公证已经白跑好几分钟。
+ */
+export function assertInteractive(isTTY) {
+  if (isTTY) return
+  throw new Error(
+    [
+      '发版需要人工确认，但当前不是交互式终端。',
+      '请在终端里直接运行 `bun --no-cache run release`，不要经管道/重定向/CI 调用。',
+    ].join('\n'),
+  )
+}
+
+export function formatConfirmation({ clientVersion, repo, tag, files }) {
+  const lines = [
+    '',
+    '━━━━━━━━━━━━━━━━ 发版确认 ━━━━━━━━━━━━━━━━',
+    `版本号：${clientVersion}`,
+    `目标仓：${repo}`,
+    `Tag：${tag}`,
+    `更新源：${macFeedUrl()}`,
+    '产物：',
+    ...files.map((file) => `  · ${file.name}  ${formatBytes(file.bytes)}`),
+    '',
+    '上传后所有已安装用户都会自动收到此版本。',
+    // tag 不存在时，gh 会基于发布仓（一个由人工定向同步的对外镜像仓）当前默认
+    // 分支的最新状态创建——不是本仓当前 HEAD。资产是我们上传的文件，与 tag 指向
+    // 哪个 commit 无关，故不影响用户下载与自动更新；只是 git 历史可能不准，
+    // 操作者需要在确认前知道这件事。
+    'tag 将基于发布仓当前默认分支创建；若镜像仓尚未同步到本次代码，tag 指向的',
+    'commit 会与本次发布的代码不一致（不影响用户下载与自动更新）。',
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  ]
+  return lines.join('\n')
+}
+
+export function assertArtifactsExist(assets) {
+  const missing = assets.filter((file) => !existsSync(file))
+  if (missing.length === 0) return
+  throw new Error(
+    [
+      '以下产物不存在，无法发版：',
+      ...missing.map((file) => `  · ${file}`),
+      '',
+      'latest-mac.yml 缺失通常意味着 package.json 的 build.publish 没配置——',
+      '没有 publish 配置时 electron-builder 不生成清单，但打包依旧「成功」。',
+    ].join('\n'),
+  )
+}
+
+/**
+ * 校验清单内容属于本次要发的版本——纯函数，便于单测直接喂字符串。
+ *
+ * 为什么必须做这一层：`dist/` 是累积目录，`assertArtifactsExist` 只查文件在不在。只要
+ * electron-builder 这次没重写清单（`build.publish` 被误删、target 配置改动等），一份
+ * **陈旧清单**会被原样传上生产——全流程 exit 0，确认闸照常打印新版本号，看起来完全正常。
+ */
+export function assertManifestMatchesVersion({ manifestContent, clientVersion, zipFileName }) {
+  let manifest
+  try {
+    manifest = parseYaml(manifestContent)
+  } catch (error) {
+    throw new Error(
+      `latest-mac.yml 解析失败，内容可能损坏：${error instanceof Error ? error.message : String(error)}`,
+    )
+  }
+  const zipUrls = Array.isArray(manifest?.files) ? manifest.files.map((file) => file?.url) : []
+  if (manifest?.version === clientVersion && zipUrls.includes(zipFileName)) return
+
+  throw new Error(
+    [
+      `latest-mac.yml 与本次待发版本不符：清单里是 ${manifest?.version ?? '未知'}，本次要发 ${clientVersion}。`,
+      'dist/ 是累积目录，这通常意味着 electron-builder 这次没有重新生成清单——',
+      '检查 package.json 的 build.publish 是否被误删、或 target 配置改动导致跳过生成。',
+      '重新完整走一遍打包（不要复用旧 dist/）再发版。',
+    ].join('\n'),
+  )
+}
+
+function assertManifestFreshness(plan, clientVersion) {
+  const manifestFile = plan.assets.find((file) => file.endsWith('latest-mac.yml'))
+  const zipFile = plan.assets.find((file) => file.endsWith('.zip'))
+  const manifestContent = readFileSync(manifestFile, 'utf8')
+  assertManifestMatchesVersion({ manifestContent, clientVersion, zipFileName: zipFile.split('/').pop() })
+}
+
+async function confirm(plan, clientVersion) {
+  const files = plan.assets.map((file) => ({ name: file.split('/').pop(), bytes: statSync(file).size }))
+  process.stdout.write(`${formatConfirmation({ clientVersion, repo: plan.repo, tag: plan.tag, files })}\n`)
+  const rl = createInterface({ input: process.stdin, output: process.stdout })
+  const answer = await rl.question('确认上传？输入 yes 继续：')
+  rl.close()
+  if (answer.trim().toLowerCase() !== 'yes') throw new Error('已取消，未上传任何文件。')
+}
+
+function ghRun(args) {
+  execFileSync('gh', args, { cwd: repoRoot, stdio: 'inherit' })
+}
+
+/**
+ * `gh release create` 失败时，用 `gh release view` 探测是否是「tag 已存在」这一类——
+ * 不解析错误文本：上面的 run 用 stdio: 'inherit'，子进程 stderr 直接流向终端，
+ * Error 对象里根本拿不到内容。命中就返回 true，探测本身失败（tag 确实不存在）
+ * 就返回 false，交给调用方原样抛出原始错误。
+ */
+function releaseAlreadyExists(plan, run) {
+  try {
+    run(['release', 'view', plan.tag, '--repo', plan.repo, '--json', 'tagName'])
+    return true
+  } catch {
+    return false
+  }
+}
+
+function tagExistsRecoveryGuidance(plan) {
+  return [
+    `发布失败：${plan.repo} 上已存在 tag ${plan.tag}（很可能是上次发版中途某个资产上传失败，停在了 draft）。`,
+    '这本身是安全的——draft release 不被匿名 API 与 releases/latest 看见，线上仍是上一版。',
+    '',
+    '恢复办法二选一：',
+    `  1. 删掉上次的 draft 重来：gh release delete ${plan.tag} --repo ${plan.repo} --cleanup-tag --yes`,
+    '     然后重新跑一遍 `bun --no-cache run release`。',
+    `  2. 去 Release 页手动补齐资产后取消草稿：https://github.com/${plan.repo}/releases/tag/${plan.tag}`,
+  ].join('\n')
+}
+
+/**
+ * 先建 draft、传完全部资产、最后才 publish。
+ * 这是本脚本最重要的顺序纪律：draft release 不被匿名 API 与 releases/latest 看见，
+ * 所以在资产全部传完之前没有任何用户能看到这个版本——不存在「清单已翻但包还没传完」
+ * 的窗口期。任一步失败，release 停在 draft，线上仍是上一版，零影响。
+ *
+ * `run` 默认是真实的 gh 调用，测试可以注入一个记录调用的假执行器——这是本脚本
+ * 风险最高的一段（真正改动线上 release），此前完全没有单测覆盖，变异实验证实
+ * 删掉某条 `--repo` 测试仍然全绿。
+ */
+export function publishRelease(plan, { run = ghRun } = {}) {
+  try {
+    run(['release', 'create', plan.tag, '--repo', plan.repo, '--draft', '--title', plan.title, '--notes', releaseNotes(plan)])
+  } catch (error) {
+    // 不吞掉原始错误：release view 探测失败（真不是 tag 已存在）就原样抛出；
+    // 探测命中就换成可操作的中文指引，但仍以非零退出——不静默、不假装成功。
+    if (!releaseAlreadyExists(plan, run)) throw error
+    throw new Error(tagExistsRecoveryGuidance(plan))
+  }
+  for (const asset of plan.assets) {
+    process.stdout.write(`↑ ${asset.split('/').pop()}\n`)
+    run(['release', 'upload', plan.tag, asset, '--repo', plan.repo, '--clobber'])
+  }
+  run(['release', 'edit', plan.tag, '--repo', plan.repo, '--draft=false', '--latest'])
+}
+
+function releaseNotes(plan) {
+  return [
+    `NarraCat ${plan.tag.replace(/^v/, '')} 内测版。`,
+    '',
+    '已装旧版的用户会在启动后自动收到更新，重启即可生效。',
+    '首次安装请下载 dmg。',
+  ].join('\n')
+}
+
+export async function runRelease() {
+  // 放在打包之前：非交互环境就别浪费几分钟签名 + 公证了。
+  assertInteractive(process.stdin.isTTY)
+
+  const clientVersion = resolveClientBuildVersion({ root: repoRoot })
+  runPackageRc({ cwd: repoRoot, notarize: true })
+
+  const plan = createReleasePlan({ clientVersion })
+  assertArtifactsExist(plan.assets)
+  assertManifestFreshness(plan, clientVersion)
+  await confirm(plan, clientVersion)
+
+  publishRelease(plan)
+
+  process.stdout.write(
+    [
+      '',
+      `✅ ${clientVersion} 已发布。`,
+      `下载地址：${macFeedUrl()}/NarraCat-${clientVersion}-mac-arm64.dmg`,
+      `Release 页：https://github.com/${plan.repo}/releases/tag/${plan.tag}`,
+      '',
+      '出问题要回退：打开上面的 Release 页 → 编辑上一个正常版本 → 勾选',
+      '"Set as the latest release" → 保存。不需要传任何文件。',
+      '',
+    ].join('\n'),
+  )
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  // 必须先加载 .env.local/.env 再跑：runPackageRc 内的 assertNotarizeCredentials /
+  // assertCorpusCredentials 读的是 process.env，而 bun run → node 不会把 .env 传给子进程。
+  // 漏这一步的后果是「凭证明明配好了却报缺失」，整条发布链在真机上打不通
+  // （package-rc.mjs / notarize-dmg.mjs 的 CLI 入口是同款处置，见 package-rc.test.mjs 的回归测试）。
+  loadEnvFiles()
+  runRelease().catch((error) => {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`)
+    process.exit(1)
+  })
+}

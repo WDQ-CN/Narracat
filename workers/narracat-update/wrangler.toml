@@ -1,0 +1,9 @@
+# 更新源加速代理（开源路线图 ④）。deploy 时会自动创建 update.narracat.com
+# 的自定义域与 DNS 记录（narracat.com 已托管在同一 Cloudflare 账号下）。
+name = "narracat-update"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+[[routes]]
+pattern = "update.narracat.com"
+custom_domain = true

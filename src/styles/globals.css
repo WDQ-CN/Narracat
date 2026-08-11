@@ -84,6 +84,7 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-info: var(--info);
+  --color-system-blue: var(--system-blue);
 }
 
 @custom-variant dark (&:is([data-theme="dark"] *));
@@ -120,6 +121,7 @@
   --success: oklch(0.55 0.16 145);
   --warning: oklch(0.72 0.15 85);
   --info: oklch(0.55 0.08 250);
+  --system-blue: #007aff;
   --ring: oklch(0.552 0.016 285.938);
   --shadow-workspace: 0 18px 48px oklch(0 0 0 / 7%);
   --shadow-floating: 0 18px 48px oklch(0 0 0 / 8%);
@@ -158,6 +160,7 @@
   --success: oklch(0.72 0.14 145);
   --warning: oklch(0.82 0.14 85);
   --info: oklch(0.72 0.1 250);
+  --system-blue: #0a84ff;
   --ring: oklch(0.705 0.015 286.067);
   --shadow-workspace: 0 18px 48px oklch(0 0 0 / 24%);
   --shadow-floating: 0 22px 56px oklch(0 0 0 / 34%);

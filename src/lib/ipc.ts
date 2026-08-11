@@ -63,6 +63,7 @@ import type {
   ReleaseGateVerdict,
   SaveManuscriptDraftInput,
   StoredWorkLocation,
+  UpdaterState,
 } from '@shared/types/ipc'
 import type { AgentQuestionAnswer } from '@/types/agent'
 import type { AuthorRequest } from '@shared/types/author-request'
@@ -82,6 +83,22 @@ export function ping(): Promise<string> {
 
 export function checkReleaseGuard(): Promise<ReleaseGateVerdict> {
   return window.electron.checkReleaseGuard()
+}
+
+export function getUpdaterState(): Promise<UpdaterState> {
+  return window.electron.getUpdaterState()
+}
+
+export function checkForUpdates(): Promise<void> {
+  return window.electron.checkForUpdates()
+}
+
+export function installUpdate(): Promise<void> {
+  return window.electron.installUpdate()
+}
+
+export function onUpdaterStateChanged(callback: (state: UpdaterState) => void): () => void {
+  return window.electron.onUpdaterStateChanged(callback)
 }
 
 export function getConfig(): Promise<AppConfigPayload> {

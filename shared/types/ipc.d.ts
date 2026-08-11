@@ -95,6 +95,7 @@ import type {
   CreateNovelProjectBackupDialogResult,
   RestoreNovelProjectBackupDialogResult,
 } from './project-backup'
+import type { UpdaterState } from './updater'
 export type { AppConfig, ModelPoolEntry, ProviderId } from './config'
 export type {
   AgentEvent,
@@ -151,6 +152,7 @@ export type {
 export type { ResultNotification, ResultNotificationList } from './notifications'
 export type { StoredWorkLocation } from './work-location'
 export type { ReleaseGateConfig, ReleaseGateReason, ReleaseGateVerdict } from './release-guard'
+export type { UpdaterEvent, UpdaterState, UpdaterStatus } from './updater'
 export type {
   CharacterContact,
   CharacterContactList,
@@ -363,6 +365,10 @@ export type PublishPackDraftResult =
 export interface ElectronApi {
   ping: () => Promise<string>
   checkReleaseGuard: () => Promise<ReleaseGateVerdict>
+  getUpdaterState: () => Promise<UpdaterState>
+  checkForUpdates: () => Promise<void>
+  installUpdate: () => Promise<void>
+  onUpdaterStateChanged: (callback: (state: UpdaterState) => void) => () => void
   getConfig: () => Promise<AppConfigPayload>
   saveConfig: (config: AppConfig) => Promise<AppConfigPayload>
   setPrimaryModel: (key: string) => Promise<AppConfigPayload>

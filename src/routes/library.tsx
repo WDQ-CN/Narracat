@@ -39,6 +39,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { AppShell } from '@/components/AppShell'
 import { CreateNovelDialog } from '@/components/library/CreateNovelDialog'
+import { UpdateReadyBanner } from '@/components/settings/UpdateReadyBanner'
 import {
   DESTRUCTIVE_INLINE_CLASS,
   EMPTY_COMPACT_BODY_CLASS,
@@ -1092,6 +1093,7 @@ export function LibraryRoute() {
       navCenter={<LibraryNavBrand />}
       navEnd={
         <>
+          <UpdateReadyBanner variant="titlebar" />
           {projects.length > 0 && <CreateNovelDialog />}
           <LibraryRestoreBackupButton />
           <GlobalNotificationBell />

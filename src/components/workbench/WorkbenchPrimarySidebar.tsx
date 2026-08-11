@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { GlobalNotificationBell } from '@/components/notifications/GlobalNotificationBell'
+import { UpdateReadyBanner } from '@/components/settings/UpdateReadyBanner'
 import { IconTooltip } from '@/components/ui/icon-tooltip'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { SIDEBAR_ROW_CLASS, WARNING_PILL_CLASS } from '@/design-system'
@@ -408,7 +409,10 @@ export function WorkbenchPrimarySidebar({
   }
 
   return (
-    <aside className="flex h-full min-h-0 w-full min-w-0 flex-col bg-canvas" data-workbench-primary-sidebar="true">
+    <aside
+      className="relative flex h-full min-h-0 w-full min-w-0 flex-col bg-canvas"
+      data-workbench-primary-sidebar="true"
+    >
       <div
         className="flex h-14 shrink-0 items-center justify-end gap-2 pl-[112px] pr-3 [-webkit-app-region:drag]"
         data-workbench-sidebar-headbar="true"
@@ -541,6 +545,10 @@ export function WorkbenchPrimarySidebar({
           selectedObjectId={selectedObjectId}
         />
       ) : null}
+      <UpdateReadyBanner
+        className="absolute inset-x-2 bottom-3 z-10"
+        onBeforeInstall={confirmLeaveManuscriptEditor}
+      />
     </aside>
   )
 }

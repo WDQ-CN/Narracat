@@ -12,6 +12,7 @@ import { disposeAllPendingCapabilityPackImportsSync } from './packs/pack-store.t
 import { createAgentQuitController } from './agent/runs/agent-quit-controller.ts'
 import { resolveNarraCatAgentCorePath } from './engine/engine.ts'
 import { maybeRunMemorySmoke } from './memory/memory-smoke.ts'
+import { startUpdater } from './updater/updater-runtime.ts'
 
 async function main() {
   await app.whenReady()
@@ -27,6 +28,12 @@ async function main() {
     // macOS：关闭所有窗口后点 dock 重新打开
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
   })
+  // 必须排在 createMainWindow() 之前：拦截页（版本过旧强更）在门控判定一回来就渲染，
+  // 用户可能立刻点「立即更新并重启」；若 startUpdater() 排在 reconcileAgentRuntimeStartup()
+  // 之后（该步骤耗时不定），installUpdateNow() 会因 started === false 直接 return、零反馈——
+  // 用户点了按钮却什么都没发生。startUpdater() 本身只做同步的状态机初始化 + 30s 后才真正
+  // 发起首次检查，提前调用没有副作用代价。
+  startUpdater()
   await reconcileAgentRuntimeStartup()
   if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
 }

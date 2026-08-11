@@ -1,0 +1,55 @@
+# Windows 构建冒烟（路线图④ 附带）：只探路，不出包。
+#
+# 唯一目的：在产品主人拿到 x64 Windows 实体机之前，先探明原生模块
+# （better-sqlite3 / sqlite-vec / sharp / onnxruntime）能不能在 Windows 上装上并编译过。
+# 这是 Windows 战役最大的未知项。失败不阻塞任何事——失败本身就是要的情报。
+#
+# 不做的事：不签名、不打 dmg/nsis 正式包、不发布、不验证功能。
+# 真机功能验收必须在 x64 实体机上做（Apple Silicon 虚拟机只能跑 Windows ARM，不算数）。
+name: Windows Build Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'package.json'
+      - 'bun.lock'
+      - '.github/workflows/windows-build-smoke.yml'
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 安装依赖（原生模块在这一步暴露问题）
+        run: bun install --no-cache
+
+      - name: 类型检查
+        run: bun --no-cache run typecheck
+
+      - name: 构建三段产物
+        run: bun --no-cache run build
+
+      # if: always() 是本步骤的存在意义：前面任一步（install/typecheck/build）失败，这一步
+      # 才是唯一能看清「哪个原生模块没落位」的地方——不加 always()，失败时它会被直接跳过，
+      # continue-on-error: true 只让 job 显绿，不改变「前一步失败则后续步骤跳过」的语义。
+      - name: 报告原生模块落位情况
+        if: always()
+        shell: bash
+        run: |
+          # build 会先跑 check-node-runtime.mjs，Windows runner 的 Node 版本不对会直接拦截，
+          # 产出与原生模块无关的失败——先打印这个排除干扰。
+          echo "=== node -v ==="
+          node -v
+          echo "=== better-sqlite3 ==="
+          ls node_modules/better-sqlite3/build/Release/ 2>&1 || echo "缺失"
+          echo "=== sqlite-vec 平台包 ==="
+          ls -d node_modules/sqlite-vec-* 2>&1 || echo "缺失（当前只装了 darwin-arm64，属预期）"
+          echo "=== sharp 平台包 ==="
+          ls -d node_modules/@img/sharp-* 2>&1 || echo "缺失"

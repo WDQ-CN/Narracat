@@ -21,6 +21,7 @@ import {
 import { ModelProviderDetailPanel } from '@/components/settings/ModelProviderDetailPanel'
 import { ModelProviderListPanel } from '@/components/settings/ModelProviderListPanel'
 import { MODEL_PROVIDERS, parseModelProviderParam } from '@/components/settings/model-providers'
+import { UpdateRow } from '@/components/settings/UpdateRow.tsx'
 import { APP_CANVAS_CLASS, WORKSPACE_SHELL_CLASS } from '@/design-system'
 import {
   SettingsActionRow,
@@ -782,6 +783,9 @@ export function SettingsRoute() {
                     <SettingsCard>
                       <SettingsRow title="客户端版本">
                         <div className="text-right text-sm tabular">{clientVersion}</div>
+                      </SettingsRow>
+                      <SettingsRow title="软件更新">
+                        <UpdateRow />
                       </SettingsRow>
                       <SettingsRow title="NarraCat Agent Core 版本">
                         <div className="truncate text-right text-sm tabular">

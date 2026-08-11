@@ -3,6 +3,9 @@ const { contextBridge, ipcRenderer } = require('electron')
 const api = {
   ping: (): Promise<string> => ipcRenderer.invoke('ping'),
   checkReleaseGuard: () => ipcRenderer.invoke('release-guard:check'),
+  getUpdaterState: () => ipcRenderer.invoke('updater:get-state'),
+  checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+  installUpdate: () => ipcRenderer.invoke('updater:install'),
   getConfig: () => ipcRenderer.invoke('config:get'),
   saveConfig: (config: unknown) => ipcRenderer.invoke('config:save', config),
   setPrimaryModel: (key: string) => ipcRenderer.invoke('config:set-primary-model', key),
@@ -155,6 +158,11 @@ const api = {
     const listener = (_event: unknown, payload: unknown) => callback(payload)
     ipcRenderer.on('notifications:changed', listener)
     return () => ipcRenderer.removeListener('notifications:changed', listener)
+  },
+  onUpdaterStateChanged: (callback: (event: unknown) => void) => {
+    const listener = (_event: unknown, payload: unknown) => callback(payload)
+    ipcRenderer.on('updater:event', listener)
+    return () => ipcRenderer.removeListener('updater:event', listener)
   },
 }
 

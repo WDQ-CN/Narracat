@@ -1,0 +1,227 @@
+import { describe, expect, test } from 'bun:test'
+import {
+  assertInteractive,
+  assertManifestMatchesVersion,
+  createReleasePlan,
+  formatConfirmation,
+  publishRelease,
+} from './release.mjs'
+import { releaseAssetFileNames } from './update-feed.mjs'
+
+describe('createReleasePlan', () => {
+  const plan = createReleasePlan({ clientVersion: '0.1.1880' })
+
+  test('tag 与目标仓正确', () => {
+    expect(plan.tag).toBe('v0.1.1880')
+    expect(plan.repo).toBe('pantsbang-yannik/narracat-novel-agent')
+  })
+
+  test('五个资产齐全且清单排在最后', () => {
+    expect(plan.assets.map((file) => file.split('/').pop())).toEqual([
+      'NarraCat-0.1.1880-mac-arm64.zip',
+      'NarraCat-0.1.1880-mac-arm64.zip.blockmap',
+      'NarraCat-0.1.1880-mac-arm64.dmg',
+      'NarraCat-0.1.1880-mac-arm64.dmg.blockmap',
+      'latest-mac.yml',
+    ])
+  })
+
+  // 不勾 Pre-release：releases/latest 不含预发布版，勾了 Worker 就找不到最新版。
+  test('标题带内测字样但不是预发布', () => {
+    expect(plan.title).toContain('0.1.1880')
+    expect(plan.title).toContain('内测')
+    expect(plan.prerelease).toBe(false)
+  })
+})
+
+describe('assertManifestMatchesVersion', () => {
+  const zipFileName = 'NarraCat-0.1.1880-mac-arm64.zip'
+  const validManifest = [
+    'version: 0.1.1880',
+    'files:',
+    `  - url: ${zipFileName}`,
+    '    sha512: abc123',
+    '    size: 1024',
+    `path: ${zipFileName}`,
+    'sha512: abc123',
+    "releaseDate: '2026-08-11T00:00:00.000Z'",
+    '',
+  ].join('\n')
+
+  test('版本号与 zip 文件名都对得上时放行', () => {
+    expect(() =>
+      assertManifestMatchesVersion({ manifestContent: validManifest, clientVersion: '0.1.1880', zipFileName }),
+    ).not.toThrow()
+  })
+
+  // I3 的核心场景：dist/ 是累积目录，electron-builder 这次没重新生成清单，
+  // 一份陈旧清单会被原样推上生产——全流程 exit 0，确认闸照常打印新版本号。
+  test('清单版本号与本次待发版本不符时拒绝', () => {
+    expect(() =>
+      assertManifestMatchesVersion({ manifestContent: validManifest, clientVersion: '0.1.1881', zipFileName }),
+    ).toThrow('与本次待发版本不符')
+  })
+
+  test('清单 files 里找不到本次 zip 文件名时拒绝', () => {
+    expect(() =>
+      assertManifestMatchesVersion({
+        manifestContent: validManifest,
+        clientVersion: '0.1.1880',
+        zipFileName: 'NarraCat-0.1.1881-mac-arm64.zip',
+      }),
+    ).toThrow('与本次待发版本不符')
+  })
+
+  test('清单内容损坏时给出可读错误而不是原始解析异常', () => {
+    expect(() =>
+      assertManifestMatchesVersion({ manifestContent: '::: not yaml :::', clientVersion: '0.1.1880', zipFileName }),
+    ).toThrow('latest-mac.yml 解析失败')
+  })
+})
+
+describe('formatConfirmation', () => {
+  test('列出版本号、目标仓、tag 与每个文件的大小', () => {
+    const text = formatConfirmation({
+      clientVersion: '0.1.1880',
+      repo: 'pantsbang-yannik/narracat-novel-agent',
+      tag: 'v0.1.1880',
+      files: [
+        { name: 'NarraCat-0.1.1880-mac-arm64.zip', bytes: 288_358_400 },
+        { name: 'latest-mac.yml', bytes: 512 },
+      ],
+    })
+    expect(text).toContain('0.1.1880')
+    expect(text).toContain('pantsbang-yannik/narracat-novel-agent')
+    expect(text).toContain('v0.1.1880')
+    expect(text).toContain('275.0 MB')
+    expect(text).toContain('0.5 KB')
+  })
+
+  // I6：发布仓是人工定向同步的镜像仓，tag 不存在时 gh 会基于它当前默认分支创建，
+  // 未必已同步到本次代码——不影响用户下载（资产是我们上传的文件），但操作者应
+  // 在敲 yes 前知道 git 历史可能对不上。
+  test('提醒 tag 基于发布仓默认分支创建、可能与本次代码不一致', () => {
+    const text = formatConfirmation({
+      clientVersion: '0.1.1880',
+      repo: 'pantsbang-yannik/narracat-novel-agent',
+      tag: 'v0.1.1880',
+      files: [],
+    })
+    expect(text).toContain('默认分支')
+    expect(text).toContain('不影响用户下载与自动更新')
+  })
+})
+
+describe('publishRelease', () => {
+  const plan = createReleasePlan({ clientVersion: '0.1.1880' })
+
+  function record() {
+    const calls = []
+    publishRelease(plan, { run: (args) => calls.push(args) })
+    return calls
+  }
+
+  // 本脚本风险最高的一段（真正改动线上 release），此前完全没有单测覆盖——
+  // 变异实验证实删掉某条 upload 的 --repo，10 pass 0 fail 仍然全绿。
+  test('调用顺序是 create → 逐个 upload → edit', () => {
+    const calls = record()
+    expect(calls.length).toBe(1 + plan.assets.length + 1)
+    expect(calls[0][0]).toBe('release')
+    expect(calls[0][1]).toBe('create')
+    for (let i = 0; i < plan.assets.length; i++) {
+      expect(calls[1 + i][1]).toBe('upload')
+    }
+    expect(calls.at(-1)[1]).toBe('edit')
+  })
+
+  test('create 带 --draft，edit 带 --draft=false 与 --latest', () => {
+    const calls = record()
+    expect(calls[0]).toContain('--draft')
+    expect(calls.at(-1)).toContain('--draft=false')
+    expect(calls.at(-1)).toContain('--latest')
+  })
+
+  test('每一条命令都带 --repo 且值是发布仓', () => {
+    const calls = record()
+    expect(calls.length).toBeGreaterThan(0)
+    for (const call of calls) {
+      const repoIndex = call.indexOf('--repo')
+      expect(repoIndex).toBeGreaterThan(-1)
+      expect(call[repoIndex + 1]).toBe(plan.repo)
+    }
+  })
+
+  test('upload 带 --clobber', () => {
+    const calls = record()
+    const uploadCalls = calls.filter((call) => call[1] === 'upload')
+    expect(uploadCalls.length).toBe(plan.assets.length)
+    for (const call of uploadCalls) {
+      expect(call).toContain('--clobber')
+    }
+  })
+
+  test('资产数量是 5，且上传顺序与 releaseAssetFileNames 一致', () => {
+    const calls = record()
+    const uploadedFileNames = calls.filter((call) => call[1] === 'upload').map((call) => call[3].split('/').pop())
+    expect(uploadedFileNames.length).toBe(5)
+    expect(uploadedFileNames).toEqual(releaseAssetFileNames('0.1.1880'))
+  })
+
+  test('任何一条命令都不含 --prerelease', () => {
+    const calls = record()
+    for (const call of calls) {
+      expect(call).not.toContain('--prerelease')
+    }
+  })
+})
+
+describe('publishRelease 中途失败后重跑撞 tag 已存在', () => {
+  const plan = createReleasePlan({ clientVersion: '0.1.1880' })
+
+  test('create 失败且 tag 确实已存在：抛出可操作的中文恢复指引，仍非零退出（抛错）', () => {
+    const calls = []
+    const run = (args) => {
+      calls.push(args)
+      if (args[1] === 'create') throw new Error('gh: HTTP 422 already_exists')
+      // release view 探测：不抛错即视为「命中，tag 已存在」
+    }
+    expect(() => publishRelease(plan, { run })).toThrow('已存在 tag')
+
+    let message = ''
+    try {
+      publishRelease(plan, { run: (args) => run(args) })
+    } catch (error) {
+      message = error.message
+    }
+    expect(message).toContain('gh release delete')
+    expect(message).toContain(plan.repo)
+    expect(message).toContain(plan.tag)
+
+    // 探测本身也要显式带 --repo，且不会继续 upload/edit（release 停在 draft，零影响）。
+    const viewCall = calls.find((call) => call[1] === 'view')
+    expect(viewCall).toBeDefined()
+    expect(viewCall).toContain('--repo')
+    expect(calls.some((call) => call[1] === 'upload')).toBe(false)
+    expect(calls.some((call) => call[1] === 'edit')).toBe(false)
+  })
+
+  test('create 失败但 tag 其实不存在（别的原因）：原样抛出原始错误，不被误判', () => {
+    const run = (args) => {
+      if (args[1] === 'create') throw new Error('gh: 认证失败，请先 gh auth login')
+      if (args[1] === 'view') throw new Error('release not found')
+    }
+    expect(() => publishRelease(plan, { run })).toThrow('认证失败')
+  })
+})
+
+describe('assertInteractive', () => {
+  // 无 TTY 时 readline 的 question() 永不 resolve，Node 会以 exit 0 静默退出——
+  // 不上传（安全），但签名+公证已白跑几分钟且看起来像「成功」。故提前拦死。
+  test('非交互终端拒绝发版', () => {
+    expect(() => assertInteractive(false)).toThrow('人工确认')
+  })
+
+  test('交互终端放行', () => {
+    expect(() => assertInteractive(true)).not.toThrow()
+  })
+})

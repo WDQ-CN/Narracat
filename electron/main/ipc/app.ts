@@ -26,6 +26,13 @@ import {
 } from '../notifications.ts'
 import { evaluateReleaseGuard } from '../release-guard-runtime.ts'
 import type { ReleaseGateVerdict } from '../release-guard.ts'
+import {
+  checkForUpdatesNow,
+  getUpdaterState,
+  installUpdateNow,
+  subscribeUpdaterSender,
+} from '../updater/updater-runtime.ts'
+import type { UpdaterState } from '@shared/types/updater'
 import { resolveNarraCatAgentCorePath } from '../engine/engine.ts'
 import { readNarraCatAgentCoreDiagnostics } from '../engine/agent-core-contract.ts'
 import { runEmbeddingHealthProbe } from '../engine/embedding-probe.ts'
@@ -102,6 +109,22 @@ export function registerAppIpcHandlers(): void {
   // 内测软过期 + 远程急刹车（#354）：渲染端启动时查一次，命中则显示拦截页。
   ipcMain.handle('release-guard:check', async (): Promise<ReleaseGateVerdict> => {
     return evaluateReleaseGuard()
+  })
+
+  ipcMain.handle('updater:get-state', (event): UpdaterState => {
+    // 拿状态的同时订阅：渲染端一挂载就能收到后续推送，不必另开一个订阅频道。
+    subscribeUpdaterSender(event.sender)
+    return getUpdaterState()
+  })
+
+  ipcMain.handle('updater:check', async (event): Promise<void> => {
+    subscribeUpdaterSender(event.sender)
+    await checkForUpdatesNow(true)
+  })
+
+  ipcMain.handle('updater:install', async (event): Promise<void> => {
+    subscribeUpdaterSender(event.sender)
+    await installUpdateNow()
   })
 
   ipcMain.handle('config:get', async (): Promise<AppConfigPayload> => {
