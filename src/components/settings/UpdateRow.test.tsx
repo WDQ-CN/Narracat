@@ -9,6 +9,12 @@
 // globalThis（保存原值、afterAll 恢复，不经 GlobalRegistrator、不动它的内部状态），更轻量、不
 // 触碰全局注册计数。
 //
+// 同样不用 `@testing-library/dom` 的 `screen`：它是进程级单例，模块首次求值时把查询函数焊死在
+// 当时的 document.body 上——本文件与 UpdateReadyBanner.test.tsx 同进程挨着跑时，谁先 import
+// `@testing-library/react` 谁就把 screen 焊死在自己的 document 上，后跑的那个查询会打到空
+// `<body/>`（CI 上实测复现）。改走 UpdateReadyBanner.test.tsx 已验证可行的做法：查询一律走
+// container.querySelector，不碰 screen。
+//
 // 与先例同款的模块加载纪律：全局挂载必须发生在 @testing-library/react 等模块被 import 之前，而
 // ES import 会提升到模块顶部——所以先同步挂全局，再顶层 await 动态 import。
 import { Window } from 'happy-dom'
@@ -21,7 +27,7 @@ Object.defineProperty(globalThis, 'document', { configurable: true, value: happy
 ;(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const { afterAll, afterEach, describe, expect, test } = await import('bun:test')
-const { cleanup, render, screen } = await import('@testing-library/react')
+const { cleanup, render } = await import('@testing-library/react')
 const { UpdateRow } = await import('./UpdateRow.tsx')
 
 afterEach(() => {
@@ -39,8 +45,10 @@ afterAll(async () => {
 describe('UpdateRow', () => {
   // 非 electron 环境下 useUpdater 返回兜底空闲态——组件测试因此不必 mock window.electron。
   test('非 electron 环境渲染为空闲态且不炸', () => {
-    render(<UpdateRow />)
-    expect(screen.getByText('已是最新')).toBeDefined()
-    expect(screen.getByRole('button', { name: '检查更新' })).toBeDefined()
+    const { container } = render(<UpdateRow />)
+    expect(container.textContent).toContain('已是最新')
+    const button = container.querySelector('button')
+    expect(button).not.toBeNull()
+    expect(button?.textContent).toBe('检查更新')
   })
 })
