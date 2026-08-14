@@ -1,30 +1,10 @@
-import { beforeAll, describe, expect, mock, test } from 'bun:test'
+// 测的是判断与文案层，它不碰 electron，所以这里也不 mock。
+// 曾经 mock 过：`mock.module('electron', …)` 是全进程注册表，先注册的那份决定模块形状，
+// window.test.ts 那份没有 Notification，跑在前面就会让被测模块的静态 import 解析失败
+// ——本机绿、Linux CI 红的跑序敏感炸弹。绑定层已拆去 native-notifications.ts。
+import { describe, expect, test } from 'bun:test'
 import type { ResultNotification } from '@shared/types/notifications'
-
-mock.module('electron', () => ({
-  app: {
-    emit: () => undefined,
-  },
-  BrowserWindow: class BrowserWindow {
-    static getAllWindows() {
-      return []
-    }
-  },
-  shell: {
-    openExternal: () => undefined,
-  },
-  Notification: class Notification {
-    static isSupported() {
-      return true
-    }
-  },
-}))
-
-let nativeNotifications: typeof import('./native-notifications')
-
-beforeAll(async () => {
-  nativeNotifications = await import('./native-notifications')
-})
+import * as nativeNotifications from './native-notification-rules.ts'
 
 const notification: ResultNotification = {
   id: 'notification-run-1',

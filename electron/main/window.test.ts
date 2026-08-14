@@ -2,8 +2,25 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, expect, mock, test } from 'bun:test'
 
+// mock.module 是全进程注册表，先注册的那份决定 'electron' 在整轮 bun test 里的形状。
+// 所以这份 mock 不能只放 window.ts 用得到的两个——本文件之后加载的任何主进程模块，
+// 只要静态 import 了这里没列出的具名导出，就会在解析期直接报「Export named X not found」，
+// 而文件顺序在本机和 CI 上并不一致（同款事故：本机全绿、Linux CI 红）。
+// 新增主进程模块用到别的 electron API 时，同步补进这份 mock。
 mock.module('electron', () => ({
-  BrowserWindow: class BrowserWindow {},
+  app: {
+    emit: () => undefined,
+  },
+  BrowserWindow: class BrowserWindow {
+    static getAllWindows() {
+      return []
+    }
+  },
+  Notification: class Notification {
+    static isSupported() {
+      return true
+    }
+  },
   shell: {
     openExternal: () => undefined,
   },
