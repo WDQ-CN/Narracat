@@ -21,6 +21,44 @@ describe("scanProseFingerprints — 洁净词库 v1（finding-only，spec §4.4�
   it("干净文本零 finding", () => {
     expect(scanProseFingerprints("他把杯子一放。「不去。」窗外的雨还在下。")).toEqual([]);
   });
+
+  it("pivot_rhetoric 覆盖翻案腔的各种外衣，不只字面「不是…而是…」", () => {
+    const cases = [
+      "他要的不是钱，而是那句话。",
+      "他要的不是钱，是那句话。",
+      "问题并非出在剑上，而是握剑的人。",
+      "胜负不在于快，而在于稳。",
+      "与其说他在等人，不如说他在等一个借口。",
+      "看似随口一问，其实早就想好了。",
+      "他一直以为父亲死于旧疾，后来才知道另有其人。",
+      "回头才发现，那晚谁都没睡。",
+      "他要的从来不是名声。",
+      "快慢不重要，重要的是他敢不敢出手。",
+      "真正让他停下的，是院子里那盏还亮着的灯。",
+    ];
+    for (const text of cases) {
+      const f = scanProseFingerprints(text).find((x) => x.category === "pivot_rhetoric");
+      expect(f, `未命中翻案腔：${text}`).toBeDefined();
+    }
+  });
+
+  it("pivot_rhetoric 不误伤跨句的正常否定陈述", () => {
+    expect(scanProseFingerprints("他不是本地人。他从山外面来。")).toEqual([]);
+  });
+
+  it("insight_signpost / nominalization / abstract_lyric 各自命中", () => {
+    const ids = (t: string) => scanProseFingerprints(t).map((f) => f.category);
+    expect(ids("值得注意的是，他一直没有回头。")).toContain("insight_signpost");
+    expect(ids("他们对这件事进行了讨论。")).toContain("nominalization");
+    expect(ids("那些话被他安放在某个说不出口的地方。")).toContain("abstract_lyric");
+  });
+
+  it("抽象抒情词只收在小说里必然修饰抽象物的几个，本义高频词不收（防误杀）", () => {
+    const lyric = PROSE_FINGERPRINT_LEXICON.find((c) => c.id === "abstract_lyric")!;
+    for (const w of ["滚烫", "赤裸", "剥开", "锋利", "坚硬", "柔软"]) {
+      expect(lyric.terms).not.toContain(w);
+    }
+  });
   it("中性节拍词不在词库（防误杀红线）", () => {
     const banned = ["突然", "这一刻", "此刻", "下一秒", "无比", "彻底", "不由得"];
     for (const cat of PROSE_FINGERPRINT_LEXICON) {

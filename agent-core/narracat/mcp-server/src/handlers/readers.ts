@@ -21,6 +21,7 @@ import {
   type ChapterOutlineItem,
 } from "./validators.js";
 import { scanProseFingerprints } from "../utils/prose-fingerprints.js";
+import { scanProseShape } from "../utils/prose-shape.js";
 import { renderChapterOutlineMarkdown } from "./chapter-outline-render.js";
 import {
   chapterFileSegment,
@@ -923,6 +924,7 @@ export async function novelCheckProseHygiene(
   const { errors, stats } = scanManuscriptProseHygiene(text);
   const reading = `破折号 ${stats.emDashPerKilo.toFixed(1)}/千字、「不是…是…」对仗 ${stats.antithesisPerKilo.toFixed(1)}/千字`;
   const fingerprintFindings = scanProseFingerprints(text);
+  const shapeFindings = scanProseShape(text);
 
   if (errors.length > 0) {
     return {
@@ -930,6 +932,7 @@ export async function novelCheckProseHygiene(
       chapter,
       errors,
       fingerprint_findings: fingerprintFindings,
+      shape_findings: shapeFindings,
       message: `第 ${chapter} 章正文机械腔超标（${reading}）。按 errors[].hint 定点擦除后重扫。`,
     };
   }
@@ -937,6 +940,7 @@ export async function novelCheckProseHygiene(
     ok: true,
     chapter,
     fingerprint_findings: fingerprintFindings,
+    shape_findings: shapeFindings,
     message: `第 ${chapter} 章正文散文洁净：${reading}，均在阈值内。`,
   };
 }

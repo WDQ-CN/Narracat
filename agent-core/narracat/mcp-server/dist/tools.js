@@ -133,7 +133,7 @@ export const TOOL_DEFINITIONS = [
     },
     {
         name: "novel_check_prose_hygiene",
-        description: "机械扫第 chapter 章正文的 AI 腔马脚：破折号密度（每千字上限）+ 「不是X是Y」对仗转折密度/同段连排，代码算不用 LLM。ok=false 时返回 errors[]+hint 供写手定点擦除自修正。只扫确定的机械对仗腔、不判文笔好坏；阈值贴真书密度留余量，只杀明显超标",
+        description: "机械扫第 chapter 章正文的 AI 腔马脚，代码算不用 LLM。三条线：① 硬密度门（破折号密度 + 「不是X是Y」对仗密度/同段连排），超标进 errors[]+hint 供定点擦除自修正；② fingerprint_findings（洁净词库命中：万能副词、神态模板、动作套话、翻案腔、洞察路标、名词化等，带命中位置与改写方向）；③ shape_findings（句段形状：句长彼此过近、叙述被切碎、短段鼓点、主干来太晚、长定语堆叠、同构排比、开场重复、连词偏密，带段号定位）。后两条 finding-only 不影响 ok。只扫机械形状、不判文笔好坏；阈值贴真书密度留余量，只杀明显超标",
         inputSchema: {
             type: "object",
             properties: {

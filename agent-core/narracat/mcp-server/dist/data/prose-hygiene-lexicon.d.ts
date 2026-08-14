@@ -1,5 +1,5 @@
 /**
- * 洁净词库 v1（正文散文指纹扫描器数据源）
+ * 洁净词库（正文散文指纹扫描器数据源）
  *
  * 与 handlers/validators.ts 里的两条硬密度门（破折号 / 「不是…是…」对仗）不同，本词库
  * 只做 finding-only 提示：不产生 ToolErrorItem、不影响任何 ok 判定，纯粹给冷 pass 提供

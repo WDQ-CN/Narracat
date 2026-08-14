@@ -12,6 +12,7 @@ import { basename, join, dirname } from "node:path";
 import { hybridSearch, multiQueryHybridSearch, } from "../utils/hybrid-search.js";
 import { computeStructureBudget, scanManuscriptProseHygiene, } from "./validators.js";
 import { scanProseFingerprints } from "../utils/prose-fingerprints.js";
+import { scanProseShape } from "../utils/prose-shape.js";
 import { renderChapterOutlineMarkdown } from "./chapter-outline-render.js";
 import { chapterFileSegment, extractManuscriptSnippets, checkReviewFreshness, resolveWorkingManuscript, findManuscript, volumeDirSegment, } from "./state-sync.js";
 import { selectStyleExamples, detectChapterEmotions } from "../corpus-loader.js";
@@ -624,12 +625,14 @@ export async function novelCheckProseHygiene(args, ctx) {
     const { errors, stats } = scanManuscriptProseHygiene(text);
     const reading = `破折号 ${stats.emDashPerKilo.toFixed(1)}/千字、「不是…是…」对仗 ${stats.antithesisPerKilo.toFixed(1)}/千字`;
     const fingerprintFindings = scanProseFingerprints(text);
+    const shapeFindings = scanProseShape(text);
     if (errors.length > 0) {
         return {
             ok: false,
             chapter,
             errors,
             fingerprint_findings: fingerprintFindings,
+            shape_findings: shapeFindings,
             message: `第 ${chapter} 章正文机械腔超标（${reading}）。按 errors[].hint 定点擦除后重扫。`,
         };
     }
@@ -637,6 +640,7 @@ export async function novelCheckProseHygiene(args, ctx) {
         ok: true,
         chapter,
         fingerprint_findings: fingerprintFindings,
+        shape_findings: shapeFindings,
         message: `第 ${chapter} 章正文散文洁净：${reading}，均在阈值内。`,
     };
 }
