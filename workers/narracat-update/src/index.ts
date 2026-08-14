@@ -58,6 +58,56 @@ export function resolveUpstreamUrl(pathname: string): string | null {
 }
 
 /**
+ * 对外的永久下载地址。给人用（公众号、群公告、落地页这类发出去就改不动的地方），
+ * 不是给 electron-updater 用的——自动更新走清单，不经过这里。
+ *
+ * 地址不带版本号，指向哪一版由 GitHub 的 latest 标记决定：先取清单读出版本号，
+ * 再转发到该版本的产物。代价是每次多一次上游往返，换来链接永不失效。
+ *
+ * 白名单精确匹配：只有登记过的地址才认。Windows 战役落位时在这里加一行，
+ * 顺带确认那时的产物扩展名（不提前臆造）。
+ *
+ * **这里的 key 与 `scripts/update-feed.mjs` 的 MAC_LATEST_DOWNLOAD_FILE 是同一件事**，
+ * 本 Worker 独立部署、不 import 本仓代码，只能靠这条注释互指：改一边必须同时改另一边。
+ */
+const DOWNLOAD_ALIASES: Record<string, DownloadAlias> = {
+  '/mac-arm64/latest.dmg': { manifestName: 'latest-mac.yml', assetSuffix: '-mac-arm64.dmg' },
+}
+
+export type DownloadAlias = {
+  /** 该平台的 electron-updater 清单文件名，版本号从它里面读。 */
+  manifestName: string
+  /** 产物名在版本号之后的部分，拼作 NarraCat-<版本><assetSuffix>。 */
+  assetSuffix: string
+}
+
+export function resolveDownloadAlias(pathname: string): DownloadAlias | null {
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(pathname)
+  } catch {
+    return null
+  }
+  return DOWNLOAD_ALIASES[decoded] ?? null
+}
+
+export function aliasManifestUrl(alias: DownloadAlias): string {
+  return `${RELEASES_BASE}/latest/download/${alias.manifestName}`
+}
+
+/**
+ * 从清单里取版本号。**必须严格三段数字**——这个值要拼进上游 URL，
+ * 松一点就等于允许清单内容左右我们去请求什么。
+ */
+export function parseManifestVersion(manifestText: string): string | null {
+  return /^version:[ \t]*(\d+\.\d+\.\d+)[ \t]*$/m.exec(manifestText)?.[1] ?? null
+}
+
+export function buildAliasAssetUrl(alias: DownloadAlias, version: string): string {
+  return `${RELEASES_BASE}/download/v${version}/NarraCat-${version}${alias.assetSuffix}`
+}
+
+/**
  * 透传给上游的请求头。**Range 必须透传**——electron-updater 的差量下载
  * （blockmap）靠它只取变化的字节块，丢了就退化成每次全量下载 275MB。
  */
@@ -98,6 +148,53 @@ function forwardResponseHeaders(upstream: Headers): Headers {
   return headers
 }
 
+/** 地址不带版本号 = 内容会变，一律不缓存；否则回退要等边缘缓存过期。 */
+const MUTABLE_CACHE_CONTROL = 'no-cache, max-age=0'
+/** 按版本号寻址的包内容不可变，可以长缓存。 */
+const IMMUTABLE_CACHE_CONTROL = 'public, max-age=31536000, immutable'
+
+async function proxy(
+  request: Request,
+  upstream: string,
+  cacheControl: string,
+  downloadFileName?: string,
+): Promise<Response> {
+  const upstreamResponse = await fetch(upstream, {
+    method: request.method,
+    headers: forwardHeaders(request.headers),
+    redirect: 'follow',
+  })
+
+  const headers = forwardResponseHeaders(upstreamResponse.headers)
+  headers.set('cache-control', cacheControl)
+  // 永久链接的路径里没有版本号，不补这一行的话用户存到本地的文件就叫 latest.dmg，
+  // 内测反馈时说不清自己装的是哪一版。
+  if (downloadFileName) headers.set('content-disposition', `attachment; filename="${downloadFileName}"`)
+  return new Response(upstreamResponse.body, {
+    status: upstreamResponse.status,
+    statusText: upstreamResponse.statusText,
+    headers,
+  })
+}
+
+/** 永久下载链接：先读清单定版本，再转发到该版本的产物。 */
+async function serveDownloadAlias(request: Request, alias: DownloadAlias): Promise<Response> {
+  // 清单必须用 GET——HEAD 拿不到 body 就解析不出版本号，哪怕本次是 HEAD 请求。
+  const manifestResponse = await fetch(aliasManifestUrl(alias), {
+    method: 'GET',
+    headers: forwardHeaders(new Headers()),
+    redirect: 'follow',
+  })
+  // 清单取不到或内容不对是上游故障，不是「地址不存在」。回 404 会让人以为链接给错了。
+  if (!manifestResponse.ok) return new Response('Bad Gateway', { status: 502 })
+
+  const version = parseManifestVersion(await manifestResponse.text())
+  if (!version) return new Response('Bad Gateway', { status: 502 })
+
+  const fileName = `NarraCat-${version}${alias.assetSuffix}`
+  return proxy(request, buildAliasAssetUrl(alias, version), MUTABLE_CACHE_CONTROL, fileName)
+}
+
 export default {
   async fetch(request: Request): Promise<Response> {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -105,23 +202,14 @@ export default {
     }
 
     const pathname = new URL(request.url).pathname
+
+    const alias = resolveDownloadAlias(pathname)
+    if (alias) return serveDownloadAlias(request, alias)
+
     const upstream = resolveUpstreamUrl(pathname)
     if (!upstream) return new Response('Not Found', { status: 404 })
 
-    const upstreamResponse = await fetch(upstream, {
-      method: request.method,
-      headers: forwardHeaders(request.headers),
-      redirect: 'follow',
-    })
-
-    const headers = forwardResponseHeaders(upstreamResponse.headers)
-    // 清单是「哪个版本是最新」的唯一开关，必须不缓存——否则回退要等边缘缓存过期。
-    // 包按版本号寻址、内容不可变，可以长缓存。
-    headers.set('cache-control', isManifestPath(pathname) ? 'no-cache, max-age=0' : 'public, max-age=31536000, immutable')
-    return new Response(upstreamResponse.body, {
-      status: upstreamResponse.status,
-      statusText: upstreamResponse.statusText,
-      headers,
-    })
+    // 清单是「哪个版本是最新」的唯一开关，同样不能缓存。
+    return proxy(request, upstream, isManifestPath(pathname) ? MUTABLE_CACHE_CONTROL : IMMUTABLE_CACHE_CONTROL)
   },
 }

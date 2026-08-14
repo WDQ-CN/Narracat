@@ -18,7 +18,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parse as parseYaml } from 'yaml'
-import { macFeedUrl, RELEASE_REPO, releaseAssetFileNames, releaseTag } from './update-feed.mjs'
+import { macDownloadUrl, macFeedUrl, RELEASE_REPO, releaseAssetFileNames, releaseTag } from './update-feed.mjs'
 import { resolveClientBuildVersion } from './client-build-version.mjs'
 import { loadEnvFiles, runPackageRc } from './package-rc.mjs'
 
@@ -224,7 +224,10 @@ export async function runRelease() {
     [
       '',
       `✅ ${clientVersion} 已发布。`,
-      `下载地址：${macFeedUrl()}/NarraCat-${clientVersion}-mac-arm64.dmg`,
+      // 对外只发永久链接：它自动跟随 latest，发新版不必换，回退时也跟着回退。
+      // 带版本号的那条只在需要钉死某一版时用（比如让某个用户复现问题）。
+      `对外分发（永久，发新版不用换）：${macDownloadUrl()}`,
+      `本版固定地址：${macFeedUrl()}/NarraCat-${clientVersion}-mac-arm64.dmg`,
       `Release 页：https://github.com/${plan.repo}/releases/tag/${plan.tag}`,
       '',
       '出问题要回退：打开上面的 Release 页 → 编辑上一个正常版本 → 勾选',

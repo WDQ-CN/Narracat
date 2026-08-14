@@ -1,5 +1,11 @@
-import { describe, expect, test } from 'bun:test'
-import { isManifestPath, resolveUpstreamUrl } from './index.ts'
+import { afterEach, describe, expect, test } from 'bun:test'
+import worker, {
+  buildAliasAssetUrl,
+  isManifestPath,
+  parseManifestVersion,
+  resolveDownloadAlias,
+  resolveUpstreamUrl,
+} from './index.ts'
 
 const BASE = 'https://github.com/pantsbang-yannik/narracat-novel-agent/releases'
 
@@ -69,5 +75,165 @@ describe('isManifestPath', () => {
 
   test('包不是清单', () => {
     expect(isManifestPath('/mac-arm64/NarraCat-0.1.1880-mac-arm64.zip')).toBe(false)
+  })
+})
+
+describe('resolveDownloadAlias', () => {
+  test('mac 的永久下载链接已登记', () => {
+    const alias = resolveDownloadAlias('/mac-arm64/latest.dmg')
+    expect(alias).not.toBeNull()
+    expect(alias?.manifestName).toBe('latest-mac.yml')
+  })
+
+  // 别名是白名单精确匹配：没登记的一律不认，免得凭空拼出不存在的产物名。
+  test('未登记的别名拒绝', () => {
+    expect(resolveDownloadAlias('/mac-arm64/latest.zip')).toBeNull()
+    expect(resolveDownloadAlias('/win-x64/latest.exe')).toBeNull()
+    expect(resolveDownloadAlias('/mac-arm64/latest.dmg/extra')).toBeNull()
+    expect(resolveDownloadAlias('/mac-arm64/%2E%2E/latest.dmg')).toBeNull()
+  })
+
+  test('别名不会被主路径当成产物名解析', () => {
+    expect(resolveUpstreamUrl('/mac-arm64/latest.dmg')).toBeNull()
+  })
+})
+
+describe('parseManifestVersion', () => {
+  test('从清单首行取版本号', () => {
+    expect(parseManifestVersion('version: 0.1.1925\nfiles:\n  - url: x.zip\n')).toBe('0.1.1925')
+  })
+
+  // 版本号会被拼进上游 URL，必须严格三段数字，不能把清单里的任意内容当版本用。
+  test('非三段数字的版本一律拒绝', () => {
+    expect(parseManifestVersion('version: latest\n')).toBeNull()
+    expect(parseManifestVersion('version: ../../../etc/passwd\n')).toBeNull()
+    expect(parseManifestVersion('files:\n  - url: x.zip\n')).toBeNull()
+    expect(parseManifestVersion('')).toBeNull()
+  })
+
+  test('版本号不在首行也能取到', () => {
+    expect(parseManifestVersion('files:\n  - url: x.zip\nversion: 1.2.3\n')).toBe('1.2.3')
+  })
+})
+
+describe('buildAliasAssetUrl', () => {
+  test('拼成该版本 tag 下的产物地址', () => {
+    const alias = resolveDownloadAlias('/mac-arm64/latest.dmg')!
+    expect(buildAliasAssetUrl(alias, '0.1.1925')).toBe(
+      `${BASE}/download/v0.1.1925/NarraCat-0.1.1925-mac-arm64.dmg`,
+    )
+  })
+})
+
+describe('fetch：永久下载链接', () => {
+  const realFetch = globalThis.fetch
+  afterEach(() => {
+    globalThis.fetch = realFetch
+  })
+
+  /** 按 URL 逐条编排上游响应，同时记录实际请求，便于断言「先取清单、再取包」。 */
+  function stubUpstream(routes: Record<string, Response>) {
+    const calls: string[] = []
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      calls.push(url)
+      const hit = routes[url]
+      if (!hit) throw new Error(`未编排的上游请求: ${url}`)
+      return hit
+    }) as typeof fetch
+    return calls
+  }
+
+  const MANIFEST_URL = `${BASE}/latest/download/latest-mac.yml`
+  const ASSET_URL = `${BASE}/download/v0.1.1925/NarraCat-0.1.1925-mac-arm64.dmg`
+
+  test('转发到 latest 对应版本的 dmg', async () => {
+    const calls = stubUpstream({
+      [MANIFEST_URL]: new Response('version: 0.1.1925\n'),
+      [ASSET_URL]: new Response('dmg-bytes', { headers: { 'content-type': 'application/octet-stream' } }),
+    })
+
+    const res = await worker.fetch(new Request('https://update.narracat.com/mac-arm64/latest.dmg'))
+
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('dmg-bytes')
+    expect(calls).toEqual([MANIFEST_URL, ASSET_URL])
+  })
+
+  // 这条地址内容会随 latest 变。一旦被边缘缓存，网页上的回退开关就失效了。
+  test('绝不能长缓存', async () => {
+    stubUpstream({
+      [MANIFEST_URL]: new Response('version: 0.1.1925\n'),
+      [ASSET_URL]: new Response('dmg-bytes'),
+    })
+
+    const res = await worker.fetch(new Request('https://update.narracat.com/mac-arm64/latest.dmg'))
+
+    expect(res.headers.get('cache-control')).toBe('no-cache, max-age=0')
+    expect(res.headers.get('cache-control')).not.toContain('immutable')
+  })
+
+  // 用户存到本地的文件要带版本号，否则内测反馈说不清自己装的是哪版。
+  test('下载文件名带上真实版本号', async () => {
+    stubUpstream({
+      [MANIFEST_URL]: new Response('version: 0.1.1925\n'),
+      [ASSET_URL]: new Response('dmg-bytes'),
+    })
+
+    const res = await worker.fetch(new Request('https://update.narracat.com/mac-arm64/latest.dmg'))
+
+    expect(res.headers.get('content-disposition')).toBe(
+      'attachment; filename="NarraCat-0.1.1925-mac-arm64.dmg"',
+    )
+  })
+
+  test('Range 透传给上游（浏览器断点续传）', async () => {
+    let assetRange: string | null = null
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      if (url === MANIFEST_URL) return new Response('version: 0.1.1925\n')
+      assetRange = new Headers(init?.headers).get('range')
+      return new Response('bytes', { status: 206 })
+    }) as typeof fetch
+
+    const res = await worker.fetch(
+      new Request('https://update.narracat.com/mac-arm64/latest.dmg', { headers: { range: 'bytes=100-200' } }),
+    )
+
+    expect(assetRange).toBe('bytes=100-200')
+    expect(res.status).toBe(206)
+  })
+
+  // 清单坏了是服务端故障，不是「地址不存在」。回 404 会让人以为链接给错了。
+  test('清单取不到时回 502', async () => {
+    stubUpstream({ [MANIFEST_URL]: new Response('Not Found', { status: 404 }) })
+
+    const res = await worker.fetch(new Request('https://update.narracat.com/mac-arm64/latest.dmg'))
+
+    expect(res.status).toBe(502)
+  })
+
+  test('清单里版本号不合法时回 502', async () => {
+    stubUpstream({ [MANIFEST_URL]: new Response('files:\n  - url: x.zip\n') })
+
+    const res = await worker.fetch(new Request('https://update.narracat.com/mac-arm64/latest.dmg'))
+
+    expect(res.status).toBe(502)
+  })
+
+  test('HEAD 也能用（浏览器/下载器会先探一次）', async () => {
+    const calls = stubUpstream({
+      [MANIFEST_URL]: new Response('version: 0.1.1925\n'),
+      [ASSET_URL]: new Response(null, { headers: { 'content-length': '288789464' } }),
+    })
+
+    const res = await worker.fetch(
+      new Request('https://update.narracat.com/mac-arm64/latest.dmg', { method: 'HEAD' }),
+    )
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-length')).toBe('288789464')
+    // 清单必须用 GET 取——HEAD 拿不到 body，就解析不出版本号。
+    expect(calls[0]).toBe(MANIFEST_URL)
   })
 })

@@ -10,8 +10,20 @@ export const RELEASE_REPO = 'pantsbang-yannik/narracat-novel-agent'
 /** 当前只发 macOS arm64；Windows 战役落位时新增 'win-x64'。 */
 export const MAC_PLATFORM_DIR = 'mac-arm64'
 
+/**
+ * 对外分发用的永久下载地址（不带版本号，自动跟随 latest）。发给人的链接一律用它，
+ * 发新版不必换链接。**这个文件名必须与 Worker 的 DOWNLOAD_ALIASES 白名单一致**
+ * （`workers/narracat-update/src/index.ts`）——Worker 是独立部署单元、不 import 本仓代码，
+ * 所以这是一处刻意的重复：改一边必须同时改另一边，否则这条链接直接 404。
+ */
+export const MAC_LATEST_DOWNLOAD_FILE = 'latest.dmg'
+
 export function macFeedUrl() {
   return `${UPDATE_FEED_BASE_URL}/${MAC_PLATFORM_DIR}`
+}
+
+export function macDownloadUrl() {
+  return `${macFeedUrl()}/${MAC_LATEST_DOWNLOAD_FILE}`
 }
 
 export function releaseTag(version) {

@@ -2,9 +2,11 @@ import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  MAC_LATEST_DOWNLOAD_FILE,
   MAC_PLATFORM_DIR,
   RELEASE_REPO,
   UPDATE_FEED_BASE_URL,
+  macDownloadUrl,
   macFeedUrl,
   releaseAssetFileNames,
   releaseTag,
@@ -19,6 +21,20 @@ describe('update feed 契约', () => {
 
   test('mac feed 指向 mac-arm64 子目录', () => {
     expect(macFeedUrl()).toBe('https://update.narracat.com/mac-arm64')
+  })
+
+  test('对外分发用的永久链接不带版本号', () => {
+    expect(macDownloadUrl()).toBe('https://update.narracat.com/mac-arm64/latest.dmg')
+    // 带版本号就不叫永久链接了——这是它存在的全部理由。
+    expect(macDownloadUrl()).not.toMatch(/\d+\.\d+\.\d+/)
+  })
+
+  // 与上面 resolveFeedUrl 那条同款的跨源守卫：Worker 独立部署、不 import 本仓代码，
+  // 白名单里没有这条 key 时它一律 404。漂移的后果是「发出去的永久链接打不开」，
+  // 而本仓这边全绿、毫无察觉，所以在这里 grep Worker 源码钉住。
+  test('Worker 的别名白名单里登记了这条永久链接', () => {
+    const source = readFileSync(join(repoRoot, 'workers/narracat-update/src/index.ts'), 'utf8')
+    expect(source).toContain(`'/${MAC_PLATFORM_DIR}/${MAC_LATEST_DOWNLOAD_FILE}'`)
   })
 
   test('发布仓是那个已 public 的新仓', () => {
