@@ -26,7 +26,7 @@ bun --no-cache run build
 bun --no-cache run package
 ```
 
-`bun --no-cache run package` computes the client build version from the current release commit, verifies and prepares NarraCat Agent Core, prepares the bundled headless Agent runtime, builds Electron bundles, and packages the macOS arm64 DMG.
+`bun --no-cache run package` computes the client build version from the current release commit, verifies and prepares NarraCat Agent Core, probes the staged runtime, builds Electron bundles, packages the macOS arm64 DMG, and smokes the packaged app.
 
 Do not use an upstream NarraCat checkout during RC packaging. RC packaging uses the internal `agent-core/narracat` source and packages it as `NarraCatAgentCore`.
 
@@ -46,9 +46,13 @@ Do not treat this smoke as proof of Agent execution or runtime identity. Run Pac
 
 ## Packaged Agent Runtime Smoke
 
-Use the unpacked `.app` produced beside the DMG. This smoke validates the bundled headless runtime, not model quality.
+Use the unpacked `.app` produced beside the DMG. This smoke validates the bundled runtime, not model quality.
 
-0. Packaging already ran `scripts/probe-staged-agent-core-runtime.mjs` (step 8 of `scripts/package-rc.mjs`, i.e. `steps[7]`): it runs the embedding selftest and starts the staged NovelMemory MCP server through the bundled headless runtime, and fails the package on either. If that step was skipped, do not treat the artifact as smoke-ready.
+0. Packaging already ran two runtime gates, and the package fails on either. They cover different binaries, so neither substitutes for the other:
+   - `probe staged Agent Core runtime` (before the build) runs `scripts/probe-staged-agent-core-runtime.mjs` with the current Node against the staged tree — the engine's own node-ABI `better-sqlite3`. Cross-platform and CI-safe.
+   - `smoke packaged app` (after `audit packaged app boundary`, macOS tier only) runs `scripts/smoke-memory.mjs` against this very `.app`, driving the real production path: utility process, the root `node_modules` Electron-ABI `better-sqlite3`, engine core dist, real RPC, and the embedding selftest against the bundled model.
+
+   If either step was skipped, do not treat the artifact as smoke-ready.
 1. Launch the unpacked `NarraCat.app` as a packaged app, not through `bun --no-cache run dev`.
 2. Open Settings and run the vector health check card; a green result proves the bundled runtime plus the bundled embedding model still work under hardened runtime.
 3. Confirm Settings reports the locked NarraCat Agent Core version and path from inside the packaged app (not from the working tree).

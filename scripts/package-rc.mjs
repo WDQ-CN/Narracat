@@ -110,6 +110,22 @@ function dmgArtifactPath(clientVersion) {
   return join(repoRoot, 'dist', `NarraCat-${clientVersion}-mac-arm64.dmg`)
 }
 
+/** 本次打包产出的未压缩 .app 可执行文件。
+ *
+ * 刻意就地定义、不 import verify-signed-artifact 的 DEFAULT_APP_PATH：本文件被 CLI 入口测试
+ * 复制到临时目录单独 spawn（见 package-rc.test.mjs 的 buildCliFixture），每多一个跨文件 import
+ * 就要多复制一个文件，而 verify-signed-artifact 自己还链着 notarize-dmg——耦合成本高于收益。
+ * 两者一致性改由测试钉住（package-rc.test.mjs「产物路径与 verify 侧同源」），漂移会红。 */
+export function packagedAppBinaryPath(root = repoRoot) {
+  return join(root, 'dist', 'mac-arm64', 'NarraCat.app', 'Contents', 'MacOS', 'NarraCat')
+}
+
+/** step.env 是**叠加**层不是替换层：子进程仍需完整继承 process.env（PATH、公证/语料凭证等）。
+ * 抽成纯函数是为了能被测试直接钉住——runPackageRc 会真的 execFileSync，测不到这一层。 */
+export function resolveStepEnv(step, baseEnv = process.env) {
+  return step.env ? { ...baseEnv, ...step.env } : undefined
+}
+
 export function createPackageRcSteps({
   clientVersion = resolveClientBuildVersion({ root: repoRoot }),
   notarize = false,
@@ -156,6 +172,9 @@ export function createPackageRcSteps({
       args: [join(repoRoot, 'scripts', 'prepare-embedding-model.mjs')],
     },
     {
+      // 第一道防线（打包前，跨平台）：拿当前 Node 跑 staged 的 embedding selftest + MCP 启动探测，
+      // 验暂存树自身完整（模型在不在、mcp-server dist 全不全、原生扩展装不装得上）。
+      // 这是 embedding 静默降级（#312/#316/#320）的打包期防线，且纯命令行、可进 Windows CI。
       label: 'probe staged Agent Core runtime',
       command: process.execPath,
       args: [join(repoRoot, 'scripts', 'probe-staged-agent-core-runtime.mjs')],
@@ -181,6 +200,27 @@ export function createPackageRcSteps({
       label: 'audit packaged app boundary',
       command: process.execPath,
       args: [join(repoRoot, 'scripts', 'audit-packaged-app-boundary.mjs')],
+    },
+    {
+      // 第二道防线（打包后，仅 mac 档）：复用 smoke-memory 的既有通道，但把 electron 二进制换成
+      // 刚打出来的 .app——验真正要发出去的东西，且走的是**生产实际路径**：真 utilityProcess +
+      // 根 node_modules 的 Electron-ABI better-sqlite3 + 引擎 core dist 动态加载 + RPC 往返。
+      // 打包态由 buildMemoryWorkerEnv 以 resourcesPath 解析真实模型路径覆盖 smoke 的 dummy 目录，
+      // 所以打包的 embedding 一并验到。
+      //
+      // 与上面的 staged 探针是互补而非重复：探针验暂存树自身（node-ABI，跨平台，能进 CI），
+      // 这里验最终产物（Electron-ABI，即生产真正加载的那一份）。两者的 sqlite 根本不是同一个二进制。
+      // 放在 audit boundary 之后：静态只读检查快，先让它拦；这一步要真启动 app，慢且有副作用。
+      // Windows 档接入时不要照搬——它要启动 GUI，而 Windows 出包走 CI、流水线从不启动界面。
+      label: 'smoke packaged app',
+      command: process.execPath,
+      args: [join(repoRoot, 'scripts', 'smoke-memory.mjs')],
+      env: {
+        NARRACAT_SMOKE_ELECTRON_BIN: packagedAppBinaryPath(),
+        // 硬闸：这一步只要没真正跑到产物就必须失败。缺了它，env 万一没传到子进程，
+        // smoke 会静默回落 dev 态、且输出与真产物逐字相同——正是本 PR 要修的那类假绿。
+        NARRACAT_SMOKE_REQUIRE_PACKAGED: '1',
+      },
     },
     ...(notarize
       ? [
@@ -213,7 +253,8 @@ export function runPackageRc({ cwd = repoRoot, stdio = 'inherit', notarize = fal
   }
   const clientVersion = resolveClientBuildVersion({ root: cwd })
   for (const step of createPackageRcSteps({ clientVersion, notarize })) {
-    execFileSync(step.command, step.args, { cwd, stdio })
+    const env = resolveStepEnv(step)
+    execFileSync(step.command, step.args, { cwd, stdio, ...(env ? { env } : {}) })
   }
 }
 

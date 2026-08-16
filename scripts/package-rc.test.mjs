@@ -12,7 +12,10 @@ import {
   createPackageRcSteps,
   findMissingCorpusEnv,
   findMissingNotarizeEnv,
+  packagedAppBinaryPath,
+  resolveStepEnv,
 } from './package-rc.mjs'
+import { DEFAULT_APP_PATH } from './verify-signed-artifact.mjs'
 
 const packageRcModuleUrl = pathToFileURL(join(dirname(fileURLToPath(import.meta.url)), 'package-rc.mjs')).href
 
@@ -51,6 +54,7 @@ describe('RC package script', () => {
       'build Electron bundles',
       'package macOS arm64 DMG + ZIP（仅签名）',
       'audit packaged app boundary',
+      'smoke packaged app',
       'verify signed artifact',
     ])
     expect(steps[0].args.some((arg) => arg.endsWith('/scripts/check-signing-identity.mjs'))).toBe(true)
@@ -68,8 +72,81 @@ describe('RC package script', () => {
     expect(steps[9].args).toContain('--config.extraMetadata.version=0.1.42')
     expect(steps[9].args).toContain('--config.mac.notarize=false')
     expect(steps[10].args.some((arg) => arg.endsWith('/scripts/audit-packaged-app-boundary.mjs'))).toBe(true)
-    expect(steps[11].args.some((arg) => arg.endsWith('/scripts/verify-signed-artifact.mjs'))).toBe(true)
-    expect(steps[11].args).not.toContain('--notarized')
+    expect(steps[12].args.some((arg) => arg.endsWith('/scripts/verify-signed-artifact.mjs'))).toBe(true)
+    expect(steps[12].args).not.toContain('--notarized')
+  })
+})
+
+describe('两道运行时防线（staged 探针 + 产物冒烟）', () => {
+  // 两者验的不是同一个二进制：探针在打包前用当前 Node 跑暂存树（引擎自带的 node-ABI
+  // better-sqlite3，跨平台、可进 Windows CI）；冒烟在打包后启动产物 .app，走生产实际路径
+  // （根 node_modules 的 Electron-ABI better-sqlite3 + utilityProcess）。少任何一条都留缺口。
+  test('冒烟跑在打包之后，且 electron 二进制指向本次产物 .app', () => {
+    const steps = createPackageRcSteps({ clientVersion: '0.1.9999' })
+    const labels = steps.map((step) => step.label)
+    const smoke = steps.find((step) => step.label === 'smoke packaged app')
+
+    expect(smoke.args.some((arg) => arg.endsWith('/scripts/smoke-memory.mjs'))).toBe(true)
+    expect(smoke.env.NARRACAT_SMOKE_ELECTRON_BIN).toMatch(
+      /\/dist\/mac-arm64\/NarraCat\.app\/Contents\/MacOS\/NarraCat$/,
+    )
+    // 顺序硬约束：必须在产物存在之后跑，否则 .app 还没生成
+    expect(labels.indexOf('smoke packaged app')).toBeGreaterThan(
+      labels.findIndex((label) => label.includes('package macOS')),
+    )
+  })
+
+  test('探针排在打包之前（早失败：暂存树坏了不该先烧几分钟打包）', () => {
+    const labels = createPackageRcSteps({ clientVersion: '0.1.9999' }).map((step) => step.label)
+    expect(labels.indexOf('probe staged Agent Core runtime')).toBeLessThan(
+      labels.findIndex((label) => label.includes('package macOS')),
+    )
+  })
+
+  test('探针步骤本身不带 env 覆盖，冒烟才需要（避免有人顺手给探针塞 electron 二进制）', () => {
+    const steps = createPackageRcSteps({ clientVersion: '0.1.9999' })
+    const probe = steps.find((step) => step.label === 'probe staged Agent Core runtime')
+    expect(probe.env).toBeUndefined()
+  })
+
+  // 冒烟必须排在 audit 之后（文档如此写，且 audit 是只读静态检查、该先拦）
+  test('冒烟排在 audit packaged app boundary 之后', () => {
+    const labels = createPackageRcSteps({ clientVersion: '0.1.9999' }).map((step) => step.label)
+    expect(labels.indexOf('smoke packaged app')).toBeGreaterThan(labels.indexOf('audit packaged app boundary'))
+  })
+
+  // 外审变异 M5 实证：把 step.env 的转发删掉，smoke-memory 会静默回落 dev 态 electron 跑 out/，
+  // 而 dev 回落的日志输出与跑真产物**逐字相同**（resolveEmbeddingModelPath 同样命中打包链刚
+  // prepare 好的 build/embedding-model），事后无从分辨。REQUIRE_PACKAGED 让这种情况硬失败。
+  test('冒烟带 REQUIRE_PACKAGED 硬闸，env 没传到时不会静默回落 dev 态', () => {
+    const smoke = createPackageRcSteps({ clientVersion: '0.1.9999' }).find(
+      (step) => step.label === 'smoke packaged app',
+    )
+    expect(smoke.env.NARRACAT_SMOKE_REQUIRE_PACKAGED).toBe('1')
+  })
+})
+
+describe('产物路径一致性', () => {
+  // package-rc 刻意不 import verify-signed-artifact（会给 CLI fixture 增加链式复制负担），
+  // 所以两处各自写了一份 dist/mac-arm64/NarraCat.app。这条测试是它们之间唯一的防漂移绳：
+  // 任一处改了产物目录/产品名而另一处没跟上，这里就红。
+  test('冒烟指向的 .app 与 verify-signed-artifact 的 DEFAULT_APP_PATH 同源', () => {
+    expect(packagedAppBinaryPath()).toBe(join(DEFAULT_APP_PATH, 'Contents', 'MacOS', 'NarraCat'))
+  })
+})
+
+describe('步骤 env 合并（外审变异 M4：叠加不得退化成替换）', () => {
+  test('带 env 的步骤在 process.env 之上叠加，不丢失继承', () => {
+    const env = resolveStepEnv({ env: { FOO: '1' } }, { PATH: '/usr/bin', SECRET: 's' })
+    expect(env).toEqual({ PATH: '/usr/bin', SECRET: 's', FOO: '1' })
+  })
+
+  test('步骤 env 覆盖同名基底键', () => {
+    expect(resolveStepEnv({ env: { FOO: 'new' } }, { FOO: 'old' }).FOO).toBe('new')
+  })
+
+  test('无 env 的步骤返回 undefined（execFileSync 走默认继承，不显式传 env）', () => {
+    expect(resolveStepEnv({}, { PATH: '/usr/bin' })).toBeUndefined()
   })
 })
 
@@ -88,6 +165,7 @@ describe('release 档：dmg 容器公证步骤', () => {
       'build Electron bundles',
       'package macOS arm64 DMG + ZIP（签名 + 公证）',
       'audit packaged app boundary',
+      'smoke packaged app',
       'notarize dmg container',
       'verify signed artifact',
     ])

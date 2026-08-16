@@ -12,12 +12,18 @@ import {
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(scriptDir, '..')
-const nodeBinaryName = process.platform === 'win32' ? 'node.exe' : 'node'
 const selftestSentinel = 'NARRACAT_EMBEDDING_SELFTEST_JSON:'
 
-export function createStagedAgentCoreRuntimeProbePlan({ root = repoRoot } = {}) {
+// 探针用「当前正在跑打包脚本的 Node」——引擎侧 mcp-server 的 better-sqlite3 本就是
+// node-ABI 构建，plain node 正是它的目标运行时（实测 node v22 / ABI 127 下 selftest
+// 四项全绿；换 Electron-as-node 反而会因 ABI 145≠127 在 sqliteVec 上炸）。原先指向的
+// build/agent-runtime/.../bin/node 是 claude-sdk 时代随包分发的 headless node，已在
+// db18df09（拆旧刀5）退役、产出脚本被删；继续找它会让任何干净检出（= CI）在打包这一步
+// 直接挂——本机此前只是靠 build/ 里从未清理的旧产物才一直「过」。
+// 顺带天然跨平台：Windows 档不必再为 node.exe 分叉。
+export function createStagedAgentCoreRuntimeProbePlan({ root = repoRoot, nodePath = process.execPath } = {}) {
   return {
-    nodePath: join(root, 'build', 'agent-runtime', 'NarraCatAgentRuntime', 'bin', nodeBinaryName),
+    nodePath,
     selftestPath: join(root, 'build', 'NarraCatAgentCore', 'mcp-server', 'dist', 'embedding-selftest.js'),
     mcpServerPath: join(root, 'build', 'NarraCatAgentCore', 'mcp-server', 'dist', 'index.js'),
     modelPath: join(root, 'build', 'embedding-model'),
@@ -28,9 +34,8 @@ function assertExists(path, label) {
   if (!existsSync(path)) throw new Error(`${label} 不存在：${path}`)
 }
 
-export function runStagedEmbeddingSelfTest({ root = repoRoot } = {}) {
-  const { nodePath, selftestPath, modelPath } = createStagedAgentCoreRuntimeProbePlan({ root })
-  assertExists(nodePath, 'Headless Agent runtime node')
+export function runStagedEmbeddingSelfTest({ root = repoRoot, nodePath: nodeOverride } = {}) {
+  const { nodePath, selftestPath, modelPath } = createStagedAgentCoreRuntimeProbePlan({ root, nodePath: nodeOverride })
   assertExists(selftestPath, 'Staged embedding selftest')
   assertExists(modelPath, 'Embedding model directory')
 
@@ -61,9 +66,8 @@ export function runStagedEmbeddingSelfTest({ root = repoRoot } = {}) {
   return report
 }
 
-export async function runStagedMcpStartupProbe({ root = repoRoot, timeoutMs = 10_000 } = {}) {
-  const { nodePath, mcpServerPath, modelPath } = createStagedAgentCoreRuntimeProbePlan({ root })
-  assertExists(nodePath, 'Headless Agent runtime node')
+export async function runStagedMcpStartupProbe({ root = repoRoot, timeoutMs = 10_000, nodePath: nodeOverride } = {}) {
+  const { nodePath, mcpServerPath, modelPath } = createStagedAgentCoreRuntimeProbePlan({ root, nodePath: nodeOverride })
   assertExists(mcpServerPath, 'Staged NovelMemory MCP server')
   assertExists(modelPath, 'Embedding model directory')
 
@@ -137,14 +141,24 @@ export async function runStagedMcpStartupProbe({ root = repoRoot, timeoutMs = 10
   }
 }
 
-export async function runStagedAgentCoreRuntimeProbe({ root = repoRoot } = {}) {
-  const selftestReport = runStagedEmbeddingSelfTest({ root })
-  await runStagedMcpStartupProbe({ root })
+export async function runStagedAgentCoreRuntimeProbe({ root = repoRoot, nodePath } = {}) {
+  const selftestReport = runStagedEmbeddingSelfTest({ root, nodePath })
+  await runStagedMcpStartupProbe({ root, nodePath })
   console.log('Staged Agent Core runtime probe OK')
   return selftestReport
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  // 必须用 Node 跑：暂存树里的 better-sqlite3 是 node-ABI 原生模块，bun 尚不支持加载它，
+  // 用 bun 跑会得到 sqliteVec.ok=false 的假红——那是运行时不对，不是暂存树坏了。
+  // 本仓命令惯例是 bun，这条闸防的就是有人（或 CI）顺手写成 `bun scripts/...`。
+  if (process.versions.bun) {
+    console.error(
+      '探针必须用 Node 运行（bun 不支持加载 node-ABI 的 better-sqlite3，会误报 sqliteVec 失败）：\n' +
+        '  node scripts/probe-staged-agent-core-runtime.mjs',
+    )
+    process.exit(1)
+  }
   try {
     await runStagedAgentCoreRuntimeProbe()
   } catch (error) {
