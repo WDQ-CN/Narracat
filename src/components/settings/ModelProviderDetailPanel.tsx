@@ -7,12 +7,13 @@ import { SettingsRow } from '@/components/settings/SettingsLayout'
 import { GROUP_CLASS, MUTED_PILL_CLASS } from '@/design-system'
 import { cn } from '@/lib/cn'
 import { isEntryVerified, modelEntryKey } from '@shared/lib/model-slots'
+import type { WireId } from '@shared/types/config'
 import type { AppConfig, ConnectionTestResult, ModelPoolEntry, ProviderId } from '@shared/types/ipc'
 import { MODEL_CATALOG, MODEL_PROVIDERS } from './model-providers'
 
 /**
- * 渠道详情二级页（渠道两级 UI v2 T4）：四分组——Key 与连接 / Base URL / 模型列表 / 添加自定义模型。
- * 池 / 槽位改动一律走 settings.tsx 的 commitConfig 即时落盘；端点草稿只在 onTestConnection 的
+ * 渠道详情二级页（渠道两级 UI v2 T4）：四分组——Key 与连接 / 接口协议与地址 / 模型列表 / 添加自定义模型。
+ * 池 / 槽位 / wire 改动一律走 settings.tsx 的 commitConfig 即时落盘；端点草稿只在 onTestConnection 的
  * saveConfig 落盘（唯一入口，语义见 src/lib/settings-config.ts 头注）。
  */
 export function ModelProviderDetailPanel({
@@ -30,6 +31,7 @@ export function ModelProviderDetailPanel({
   onSaveApiKey,
   onDeleteApiKey,
   onBaseUrlChange,
+  onWireChange,
   onTestConnection,
   onRefreshModels,
   onToggleModel,
@@ -51,6 +53,8 @@ export function ModelProviderDetailPanel({
   onSaveApiKey: () => void | Promise<void>
   onDeleteApiKey: () => void | Promise<void>
   onBaseUrlChange: (value: string) => void
+  /** 切换接口协议（仅 custom 渠道渲染选择器；端点草稿随 baseUrl 语义，测试连接时一并落盘）。 */
+  onWireChange: (wire: WireId) => void
   onTestConnection: () => void | Promise<void>
   onRefreshModels: () => void | Promise<void>
   onToggleModel: (modelId: string, enabled: boolean) => void
@@ -152,11 +156,67 @@ export function ModelProviderDetailPanel({
       </section>
 
       <section className={GROUP_CLASS}>
-        <SettingsRow title="接口地址" description={endpointLocked ? 'Anthropic 直连不需要填写' : '兼容 Anthropic 协议的服务地址'}>
+        {provider === 'custom' ? (
+          <SettingsRow title="接口协议" description="切换后需重新「测试连接」；旧验证与旧对话会自动失效">
+            <div className="flex items-center gap-1.5" data-model-wire-selector="true">
+              <Button
+                type="button"
+                size="xs"
+                variant={config.providers[provider].wire === 'anthropic' ? 'secondary' : 'ghost'}
+                disabled={busy}
+                aria-pressed={config.providers[provider].wire === 'anthropic'}
+                data-model-wire-option="anthropic"
+                onClick={() => onWireChange('anthropic')}
+              >
+                Anthropic 兼容
+              </Button>
+              <Button
+                type="button"
+                size="xs"
+                variant={config.providers[provider].wire === 'openai' ? 'secondary' : 'ghost'}
+                disabled={busy}
+                aria-pressed={config.providers[provider].wire === 'openai'}
+                data-model-wire-option="openai"
+                onClick={() => onWireChange('openai')}
+              >
+                OpenAI 兼容
+              </Button>
+            </div>
+          </SettingsRow>
+        ) : null}
+        {provider === 'custom' && config.providers[provider].wire === 'openai' ? (
+          <SettingsRow align="start" title="OpenAI 协议须知" description="前缀缓存费用与功能覆盖范围">
+            {/* 文案为维护者定稿（#5 前提 1 + PR #13 review 功能缺口告知），改动需先与维护者对齐 */}
+            <div className="grid gap-1.5" data-model-wire-cache-hint="true">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                OpenAI 兼容协议不支持 Anthropic 式的前缀缓存。超长篇写作每一轮都要带很大的上下文包，缓存是成本命门——同样的内容，无缓存时的花费可能是有缓存时的数倍，请按无缓存预估你的开销。
+              </p>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                另外，此协议目前只覆盖写作主链。角色聊天、能力包编译等功能仍走 Anthropic 协议，选择此项后将无法使用。
+              </p>
+            </div>
+          </SettingsRow>
+        ) : null}
+        <SettingsRow
+          title="接口地址"
+          description={
+            endpointLocked
+              ? 'Anthropic 直连不需要填写'
+              : config.providers[provider].wire === 'openai'
+                ? 'OpenAI 兼容端点（/chat/completions），以 /v1 结尾'
+                : '兼容 Anthropic 协议的服务地址'
+          }
+        >
           <Input
             value={config.providers[provider].baseUrl}
             disabled={endpointLocked || busy}
-            placeholder={endpointLocked ? 'Anthropic 官方端点' : 'https://api.example.com/anthropic'}
+            placeholder={
+              endpointLocked
+                ? 'Anthropic 官方端点'
+                : config.providers[provider].wire === 'openai'
+                  ? 'https://api.example.com/v1'
+                  : 'https://api.example.com/anthropic'
+            }
             className="h-8 font-mono text-xs"
             onChange={(event) => onBaseUrlChange(event.target.value)}
           />
