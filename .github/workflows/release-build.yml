@@ -1,0 +1,178 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # 匹配 v0.2.0, v1.0.0 等标签
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  # macOS 构建（Apple Silicon）
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 安装依赖
+        run: bun install --no-cache
+
+      - name: 准备 Agent Core
+        run: bun run prepare:narracat-agent-core
+
+      - name: 准备 Embedding 模型
+        run: node scripts/prepare-embedding-model.mjs
+
+      - name: 构建应用
+        run: bun run build
+
+      - name: 打包 macOS
+        env:
+          # macOS 签名和公证（如果配置了）
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # 如果配置了 Apple 凭证，则签名+公证；否则只打包
+          if [ -n "$APPLE_ID" ]; then
+            echo "检测到 Apple 凭证，将进行签名和公证..."
+            bun run package:release
+          else
+            echo "未检测到 Apple 凭证，将跳过签名和公证..."
+            bun run package
+          fi
+
+      - name: 上传 macOS 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/latest-mac.yml
+          retention-days: 7
+
+  # Windows 构建（x64）
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 安装依赖
+        run: bun install --no-cache
+
+      - name: 准备 Agent Core
+        run: bun run prepare:narracat-agent-core
+
+      - name: 准备 Embedding 模型
+        run: node scripts/prepare-embedding-model.mjs
+
+      - name: 构建应用
+        run: bun run build
+
+      - name: 配置 Windows 签名（如果有证书）
+        id: signing
+        shell: bash
+        env:
+          WIN_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          WIN_CERT_THUMBPRINT: ${{ secrets.WINDOWS_CERT_THUMBPRINT }}
+        run: |
+          if [ -n "$WIN_CERT_PFX" ] && [ -n "$WIN_CERT_THUMBPRINT" ]; then
+            echo "has_cert=true" >> $GITHUB_OUTPUT
+            echo "检测到 Windows 签名证书"
+          else
+            echo "has_cert=false" >> $GITHUB_OUTPUT
+            echo "未检测到签名证书，将构建未签名版本"
+          fi
+
+      - name: 打包 Windows（有签名）
+        if: steps.signing.outputs.has_cert == 'true'
+        env:
+          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+          WINDOWS_CERT_THUMBPRINT: ${{ secrets.WINDOWS_CERT_THUMBPRINT }}
+        run: bun run package:win
+
+      - name: 打包 Windows（无签名）
+        if: steps.signing.outputs.has_cert == 'false'
+        run: |
+          # 跳过签名检查，直接打包
+          $env:SKIP_SIGNING_CHECK = "true"
+          bun run package:win
+
+      - name: 上传 Windows 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: |
+            dist/*.exe
+            dist/latest.yml
+          retention-days: 7
+
+  # 创建 GitHub Release
+  create-release:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 下载 macOS 产物
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-artifacts
+          path: dist-macos
+
+      - name: 下载 Windows 产物
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-artifacts
+          path: dist-windows
+
+      - name: 读取 Release Notes
+        id: release_notes
+        run: |
+          if [ -f "RELEASE_NOTES_${{ github.ref_name }}.md" ]; then
+            echo "使用版本专属 Release Notes"
+            NOTES_FILE="RELEASE_NOTES_${{ github.ref_name }}.md"
+          elif [ -f "RELEASE_NOTES_v0.2.0.md" ]; then
+            echo "使用默认 Release Notes"
+            NOTES_FILE="RELEASE_NOTES_v0.2.0.md"
+          else
+            echo "未找到 Release Notes，使用默认内容"
+            echo "notes=Release ${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # 读取文件内容
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          cat "$NOTES_FILE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body: ${{ steps.release_notes.outputs.notes }}
+          files: |
+            dist-macos/*
+            dist-windows/*
+          draft: false
+          prerelease: true  # 标记为预览版
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 通知构建完成
+        run: |
+          echo "✅ Release ${{ github.ref_name }} 创建成功！"
+          echo "📦 macOS 产物："
+          ls -lh dist-macos/
+          echo "📦 Windows 产物："
+          ls -lh dist-windows/
