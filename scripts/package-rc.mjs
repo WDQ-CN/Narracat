@@ -309,11 +309,13 @@ export function runPackageRc({ cwd = repoRoot, stdio = 'inherit', notarize = fal
   const clientVersion = resolveClientBuildVersion({ root: cwd })
   for (const step of createPackageRcSteps({ clientVersion, notarize, platform: resolvePackagePlatform(platform) })) {
     const env = resolveStepEnv(step)
-    // Windows 上 .cmd 文件需要通过 shell 执行
     const execOptions = { cwd, stdio, ...(env ? { env } : {}) }
-    if (process.platform === 'win32' && step.command.endsWith('.cmd')) {
+
+    // Windows 上需要 shell 来执行 .cmd 文件
+    if (process.platform === 'win32') {
       execOptions.shell = true
     }
+
     execFileSync(step.command, step.args, execOptions)
   }
 }
