@@ -1,17 +1,19 @@
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { describe, expect, test } from 'bun:test'
 
 import { notarizeDmg, parseNotarytoolSubmitOutput, pickLatestDmg, resolveDmgPath } from './notarize-dmg.mjs'
 
 // xcrun notarytool submit --wait <dmg>（2026-08-10 对 dist/NarraCat-0.1.1869-mac-arm64.dmg 实测，逐字拷贝——
 // 部分行含具体路径/耗时，为脱敏与稳定性去掉了时间戳细节，字段结构与真实输出一致；
-// 家目录路径统一替换成 /tmp/narracat-decktop 占位，其余内容原样保留）。
+// 绝对路径统一替换成平台无关的占位符，其余内容原样保留）。
 const NOTARYTOOL_ACCEPTED = `Conducting pre-submission checks for NarraCat-0.1.1869-mac-arm64.dmg and initiating connection to the Apple notary service...
 Submission ID received
   id: 563ee3d8-2158-42e2-9add-58e987a35028
 Upload progress: 100.00% (300.5 MB of 300.5 MB)
 Successfully uploaded file
   id: 563ee3d8-2158-42e2-9add-58e987a35028
-  path: /tmp/narracat-decktop/dist/NarraCat-0.1.1869-mac-arm64.dmg
+  path: ${join(tmpdir(), 'narracat-decktop', 'dist', 'NarraCat-0.1.1869-mac-arm64.dmg')}
 Waiting for processing to complete.
 Processing complete
   id: 563ee3d8-2158-42e2-9add-58e987a35028
@@ -68,13 +70,15 @@ describe('parseNotarytoolSubmitOutput', () => {
 
 describe('resolveDmgPath', () => {
   test('传了 dmgArg 时直接用它（不扫描目录）', () => {
-    expect(resolveDmgPath('/tmp/foo.dmg', '/should/not/be/read')).toBe('/tmp/foo.dmg')
+    const testDmgPath = join(tmpdir(), 'foo.dmg')
+    expect(resolveDmgPath(testDmgPath, join(tmpdir(), 'should-not-be-read'))).toBe(testDmgPath)
   })
 })
 
 describe('notarizeDmg：组装逻辑（stub exec，不实际调用系统命令/消耗公证配额）', () => {
   const SIGNING_IDENTITY_OUTPUT = '1) A1B2C3D4E5F60718293A4B5C6D7E8F9012345678 "Developer ID Application: Example Developer (TEAM123456)"\n   1 valid identities found'
   const CREDS = { APPLE_API_KEY: '/k.p8', APPLE_API_KEY_ID: 'K1', APPLE_API_ISSUER: 'I1' }
+  const testDmgPath = join(tmpdir(), 'NarraCat.dmg')
 
   test('已装订则跳过（幂等），不触碰签名身份/凭证/notarytool', () => {
     const exec = (command, args) => {
@@ -83,8 +87,8 @@ describe('notarizeDmg：组装逻辑（stub exec，不实际调用系统命令/�
       }
       throw new Error(`unexpected exec call: ${command} ${args.join(' ')}`)
     }
-    const result = notarizeDmg({ dmgPath: '/tmp/NarraCat.dmg', exec, env: {}, log: () => {} })
-    expect(result).toEqual({ dmgPath: '/tmp/NarraCat.dmg', skipped: true })
+    const result = notarizeDmg({ dmgPath: testDmgPath, exec, env: {}, log: () => {} })
+    expect(result).toEqual({ dmgPath: testDmgPath, skipped: true })
   })
 
   test('未装订 + 缺公证凭证：fail-loud，不发起 codesign/notarytool', () => {
@@ -94,7 +98,7 @@ describe('notarizeDmg：组装逻辑（stub exec，不实际调用系统命令/�
       }
       throw new Error(`unexpected exec call: ${command} ${args.join(' ')}`)
     }
-    expect(() => notarizeDmg({ dmgPath: '/tmp/NarraCat.dmg', exec, env: {}, log: () => {} })).toThrow(
+    expect(() => notarizeDmg({ dmgPath: testDmgPath, exec, env: {}, log: () => {} })).toThrow(
       /公证凭证缺失/,
     )
   })
@@ -123,9 +127,9 @@ describe('notarizeDmg：组装逻辑（stub exec，不实际调用系统命令/�
 
   test('全链路成功：签名哈希来自 security 输出解析，三步依次执行', () => {
     const exec = fullStub({})
-    const result = notarizeDmg({ dmgPath: '/tmp/NarraCat.dmg', exec, env: CREDS, log: () => {} })
+    const result = notarizeDmg({ dmgPath: testDmgPath, exec, env: CREDS, log: () => {} })
     expect(result).toEqual({
-      dmgPath: '/tmp/NarraCat.dmg',
+      dmgPath: testDmgPath,
       skipped: false,
       submissionId: '563ee3d8-2158-42e2-9add-58e987a35028',
       status: 'Accepted',
@@ -135,7 +139,7 @@ describe('notarizeDmg：组装逻辑（stub exec，不实际调用系统命令/�
   test('全链路成功：codesign 与 notarytool 收到的关键 args 真的对——不是随便传三个字符串都能过', () => {
     const calls = []
     const exec = fullStub({ calls })
-    notarizeDmg({ dmgPath: '/tmp/NarraCat.dmg', exec, env: CREDS, log: () => {} })
+    notarizeDmg({ dmgPath: testDmgPath, exec, env: CREDS, log: () => {} })
 
     const codesignCall = calls.find(([command]) => command === 'codesign')
     // 哈希须来自 security 输出解析（不是写死常量），且必须带 --force（重跑场景 dmg 已有旧签名，
@@ -146,7 +150,7 @@ describe('notarizeDmg：组装逻辑（stub exec，不实际调用系统命令/�
       'A1B2C3D4E5F60718293A4B5C6D7E8F9012345678',
       '--force',
       '--timestamp',
-      '/tmp/NarraCat.dmg',
+      testDmgPath,
     ])
 
     const submitCall = calls.find(([command, sub]) => command === 'xcrun' && sub === 'notarytool')
@@ -155,7 +159,7 @@ describe('notarizeDmg：组装逻辑（stub exec，不实际调用系统命令/�
       'xcrun',
       'notarytool',
       'submit',
-      '/tmp/NarraCat.dmg',
+      testDmgPath,
       '--key',
       CREDS.APPLE_API_KEY,
       '--key-id',
@@ -166,7 +170,7 @@ describe('notarizeDmg：组装逻辑（stub exec，不实际调用系统命令/�
     ])
 
     const stapleActionCall = calls.find(([command, sub, action]) => command === 'xcrun' && sub === 'stapler' && action === 'staple')
-    expect(stapleActionCall).toEqual(['xcrun', 'stapler', 'staple', '/tmp/NarraCat.dmg'])
+    expect(stapleActionCall).toEqual(['xcrun', 'stapler', 'staple', testDmgPath])
   })
 
   test('多张 Developer ID 证书时告警并打印选中的是哪一张（只含证书名与哈希，不涉私钥）', () => {
@@ -186,7 +190,7 @@ describe('notarizeDmg：组装逻辑（stub exec，不实际调用系统命令/�
       throw new Error(`unexpected exec call: ${command} ${args.join(' ')}`)
     }
     const logs = []
-    notarizeDmg({ dmgPath: '/tmp/NarraCat.dmg', exec, env: CREDS, log: (msg) => logs.push(msg) })
+    notarizeDmg({ dmgPath: testDmgPath, exec, env: CREDS, log: (msg) => logs.push(msg) })
 
     const warning = logs.find((line) => line.includes('⚠') && line.includes('2 个'))
     expect(warning).toBeDefined()
@@ -200,21 +204,21 @@ describe('notarizeDmg：组装逻辑（stub exec，不实际调用系统命令/�
 
   test('codesign 失败时抛出说明性错误', () => {
     const exec = fullStub({ codesignStatus: 1 })
-    expect(() => notarizeDmg({ dmgPath: '/tmp/NarraCat.dmg', exec, env: CREDS, log: () => {} })).toThrow(
+    expect(() => notarizeDmg({ dmgPath: testDmgPath, exec, env: CREDS, log: () => {} })).toThrow(
       /dmg 签名失败/,
     )
   })
 
   test('公证被拒（status 非 Accepted）时抛出说明性错误，提示用 notarytool log 查详情', () => {
     const exec = fullStub({ notarytoolOutput: NOTARYTOOL_INVALID })
-    expect(() => notarizeDmg({ dmgPath: '/tmp/NarraCat.dmg', exec, env: CREDS, log: () => {} })).toThrow(
+    expect(() => notarizeDmg({ dmgPath: testDmgPath, exec, env: CREDS, log: () => {} })).toThrow(
       /公证未通过.*notarytool log/s,
     )
   })
 
   test('票据装订失败时抛出说明性错误', () => {
     const exec = fullStub({ staplerStatus: 65 })
-    expect(() => notarizeDmg({ dmgPath: '/tmp/NarraCat.dmg', exec, env: CREDS, log: () => {} })).toThrow(
+    expect(() => notarizeDmg({ dmgPath: testDmgPath, exec, env: CREDS, log: () => {} })).toThrow(
       /票据装订失败/,
     )
   })

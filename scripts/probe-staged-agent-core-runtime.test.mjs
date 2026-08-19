@@ -9,14 +9,15 @@ describe('staged Agent Core runtime 探针的执行计划', () => {
   // 在任何干净检出（= CI）上打包都会在这一步挂——本机只是因为 build/ 里
   // 躺着从未清理的旧产物才一直「过」。
   test('用当前 Node 可执行文件，不再依赖已退役的 headless runtime', () => {
-    const plan = createStagedAgentCoreRuntimeProbePlan({ root: '/tmp/narracat-probe-plan' })
+    const root = join(process.cwd(), 'test-probe-plan')
+    const plan = createStagedAgentCoreRuntimeProbePlan({ root })
     expect(plan.nodePath).toBe(process.execPath)
     expect(JSON.stringify(plan)).not.toContain('NarraCatAgentRuntime')
     expect(JSON.stringify(plan)).not.toContain('agent-runtime')
   })
 
   test('其余三条路径仍指向暂存树与构建期模型目录', () => {
-    const root = '/tmp/narracat-probe-plan'
+    const root = join(process.cwd(), 'test-probe-plan')
     const plan = createStagedAgentCoreRuntimeProbePlan({ root })
     expect(plan.selftestPath).toBe(
       join(root, 'build', 'NarraCatAgentCore', 'mcp-server', 'dist', 'embedding-selftest.js'),
@@ -26,7 +27,8 @@ describe('staged Agent Core runtime 探针的执行计划', () => {
   })
 
   test('nodePath 可注入（打包链未来若换运行时不必再改探针）', () => {
-    const plan = createStagedAgentCoreRuntimeProbePlan({ root: '/tmp/x', nodePath: '/custom/node' })
+    const root = join(process.cwd(), 'test-x')
+    const plan = createStagedAgentCoreRuntimeProbePlan({ root, nodePath: '/custom/node' })
     expect(plan.nodePath).toBe('/custom/node')
   })
 })
