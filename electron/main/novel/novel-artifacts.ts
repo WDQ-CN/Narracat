@@ -312,7 +312,7 @@ function parseWorkbenchObjectId(objectId: string): WorkbenchObjectDescriptor {
     return {
       kind: 'character',
       title,
-      artifacts: [{ id: objectId, title, relativePath: join(charactersDir(), `${title}.md`) }],
+      artifacts: [{ id: objectId, title, relativePath: join(charactersDir(), `${title}.md`).split('\\').join('/') }],
     }
   }
 
@@ -322,7 +322,7 @@ function parseWorkbenchObjectId(objectId: string): WorkbenchObjectDescriptor {
     return {
       kind: 'world',
       title,
-      artifacts: [{ id: objectId, title, relativePath: join(worldDir(), `${title}.md`) }],
+      artifacts: [{ id: objectId, title, relativePath: join(worldDir(), `${title}.md`).split('\\').join('/') }],
     }
   }
 

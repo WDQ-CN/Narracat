@@ -114,13 +114,13 @@ describe('WorkbenchStage', () => {
   })
 
   test('allows sequential planning actions to run without selected chapter context', () => {
-    const source = readFileSync(fileURLToPath(new URL('./WorkbenchStage.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./WorkbenchStage.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain('action.omitSelectedChapter ? undefined : selectedItem?.chapterNumber')
   })
 
   test('uses the shared pixel resize contract between content and the Agent conversation area', () => {
-    const source = readFileSync(fileURLToPath(new URL('./WorkbenchStage.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./WorkbenchStage.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).not.toContain('react-resizable-panels')
     expect(source).toContain('workbenchStageGridTemplateColumns(agentWidth)')
@@ -132,7 +132,7 @@ describe('WorkbenchStage', () => {
   })
 
   test('navigates to targeted generated content before starting the Agent run', () => {
-    const source = readFileSync(fileURLToPath(new URL('./WorkbenchStage.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./WorkbenchStage.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain('const navigate = useNavigate()')
     expect(source).toContain('buildWorkbenchTargetHref')
@@ -141,7 +141,7 @@ describe('WorkbenchStage', () => {
   })
 
   test('routes composer handoff actions without starting an Agent run', () => {
-    const source = readFileSync(fileURLToPath(new URL('./WorkbenchStage.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./WorkbenchStage.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain("action.kind === 'composer-handoff'")
     expect(source).toContain('requestComposerHandoff')
@@ -149,7 +149,7 @@ describe('WorkbenchStage', () => {
   })
 
   test('routes text selection handoff through the composer while Agent work is idle', () => {
-    const source = readFileSync(fileURLToPath(new URL('./WorkbenchStage.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./WorkbenchStage.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain(
       [
@@ -166,7 +166,7 @@ describe('WorkbenchStage', () => {
   })
 
   test('uses the novel scoped Agent thread for panel state and run requests', () => {
-    const source = readFileSync(fileURLToPath(new URL('./WorkbenchStage.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./WorkbenchStage.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain('getAgentThreadIdForProject(project)')
     expect(source).toContain('threadId: agentThreadId')
@@ -176,7 +176,7 @@ describe('WorkbenchStage', () => {
   })
 
   test('uses one controlled chapter tab state for titlebar actions and content rendering', () => {
-    const source = readFileSync(fileURLToPath(new URL('./WorkbenchStage.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./WorkbenchStage.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain('resolveDefaultChapterView')
     expect(source).toContain('selectedChapterView ?? defaultChapterView')

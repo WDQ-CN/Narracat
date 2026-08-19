@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { join } from 'node:path'
 import {
   firstEmbeddingFailureReason,
   mapEmbeddingHealthProbeResult,
@@ -167,9 +168,10 @@ describe('runEmbeddingHealthProbe（memory worker 通道）', () => {
   // P1 回归：打包态内置模型缺失必须直接判降级，不得跑自检（避免联网下载掩盖坏 RC 包）。
   test('打包态内置模型缺失 → 不调通道、判降级（不联网下载）', async () => {
     let called = false
+    const resourcesPath = '/res'
     const result = await runEmbeddingHealthProbe({
-      appRoot: '/res/app.asar', // = join(resourcesPath, 'app.asar') → 打包态
-      resourcesPath: '/res',
+      appRoot: join(resourcesPath, 'app.asar'), // 打包态判定 appRoot === join(resourcesPath, 'app.asar')
+      resourcesPath,
       fileExists: () => false, // 无权重 → modelSource.kind = 'missing'
       checkedAt: 'T',
       callSelfTest: async () => {

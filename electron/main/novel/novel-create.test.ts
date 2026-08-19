@@ -25,7 +25,10 @@ function validInput(overrides: Partial<CreateNovelProjectInput> = {}): CreateNov
 }
 
 function expectUuidProjectPath(projectPath: string, root: string): string {
-  expect(projectPath).toMatch(new RegExp(`^${root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/novel-[0-9a-f-]{36}$`))
+  // 分隔符无关：Windows 上 join 产反斜杠、mac/linux 产正斜杠——不断言分隔符，
+  // 只断言「root 开头 + 尾段是 novel-UUID」；basename 本身与分隔符无关。
+  expect(projectPath.startsWith(root)).toBe(true)
+  expect(basename(projectPath)).toMatch(/^novel-[0-9a-f-]{36}$/)
   return basename(projectPath).replace(/^novel-/, '')
 }
 

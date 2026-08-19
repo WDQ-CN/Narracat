@@ -313,7 +313,9 @@ async function directTextFiles(
     const entries = await readdir(join(projectPath, relativeDir), { withFileTypes: true })
     return entries
       .filter((entry) => entry.isFile() && extensions.includes(extname(entry.name).toLowerCase()))
-      .map((entry) => join(relativeDir, entry.name))
+      // 归一化正斜杠：treeItems.path 是跨平台契约（novel-layout 已统一正斜杠），
+      // Windows 上 join 会产出反斜杠破坏契约。
+      .map((entry) => join(relativeDir, entry.name).split('\\').join('/'))
       .sort((left, right) => left.localeCompare(right, 'zh-CN'))
   } catch {
     return []

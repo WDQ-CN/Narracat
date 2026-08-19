@@ -895,23 +895,24 @@ describe('createAgentRunManager', () => {
     expect(capturedArgs[4]?.prompt).toContain('$ARGUMENTS：1')
     expect(capturedArgs[4]?.prompt).not.toContain('NarraCat runtime status')
     const expectedDevRuntimePath = resolveDevelopmentHeadlessAgentRuntimeExecutablePath()
+    const expectedAgentCorePath = join('/workspace/narracat-decktop', 'agent-core', 'narracat')
     for (const args of capturedArgs) {
       expect(args.options.plugins).toEqual([
-        { type: 'local', path: '/workspace/narracat-decktop/agent-core/narracat' },
+        { type: 'local', path: expectedAgentCorePath },
       ])
       expect(args.options.mcpServers).toMatchObject({
         plugin_narracat_novelmemory: {
           command: expectedDevRuntimePath,
-          args: ['/workspace/narracat-decktop/agent-core/narracat/mcp-server/dist/index.js'],
+          args: [join(expectedAgentCorePath, 'mcp-server', 'dist', 'index.js')],
           env: {
-            NOVEL_CONFIG_PATH: '/novels/stars/.narracat/config.yaml',
+            NOVEL_CONFIG_PATH: join('/novels/stars', '.narracat', 'config.yaml'),
           },
         },
       })
       expect(args.options.allowedTools).toContain('AskUserQuestion')
       expect(args.options.allowedTools).toContain('Write')
       expect(args.options.allowedTools).toContain('Agent')
-      expect(args.options.additionalDirectories?.some((path) => path.endsWith('/agent-core/narracat'))).toBe(true)
+      expect(args.options.additionalDirectories?.some((path) => path.endsWith(join('agent-core', 'narracat')))).toBe(true)
     }
     const projectUpdateEvents = events.filter((event) => event.type === 'novel.project.updated')
     expect(projectUpdateEvents).toHaveLength(5)
@@ -1374,11 +1375,11 @@ describe('createAgentRunManager', () => {
     expect(engineArgs?.options.cwd).toBe('/novels/stars')
     // project-command 待遇：挂运行适配器 + NovelMemory MCP + 引擎工具白名单，不套 direct-chat 系统提示。
     expect(engineArgs?.options.plugins).toEqual([
-      { type: 'local', path: '/workspace/narracat-decktop/agent-core/narracat' },
+      { type: 'local', path: join('/workspace/narracat-decktop', 'agent-core', 'narracat') },
     ])
     expect(engineArgs?.options.mcpServers).toMatchObject({
       plugin_narracat_novelmemory: {
-        env: { NOVEL_CONFIG_PATH: '/novels/stars/.narracat/config.yaml' },
+        env: { NOVEL_CONFIG_PATH: join('/novels/stars', '.narracat', 'config.yaml') },
       },
     })
     for (const toolName of NARRACAT_NOVEL_MEMORY_MCP_TOOLS) {
@@ -1856,7 +1857,7 @@ describe('createAgentRunManager', () => {
     expect(capturedArgs[1]?.options.resume).toBe(sdkSessionId)
     expect(capturedArgs[1]?.options.cwd).toBe('/novels/stars')
     expect(capturedArgs[1]?.options.plugins).toEqual([
-      { type: 'local', path: '/workspace/narracat-decktop/agent-core/narracat' },
+      { type: 'local', path: join('/workspace/narracat-decktop', 'agent-core', 'narracat') },
     ])
     expect(capturedArgs[1]?.options.allowedTools).toContain('Write')
     expect(capturedArgs[1]?.options.allowedTools).toContain('AskUserQuestion')

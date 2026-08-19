@@ -132,7 +132,9 @@ async function uniqueFileName(directory: string, stem: string, extension: '.md' 
 
 async function readReferenceSource(projectPath: string, fileName: string): Promise<ReferenceSourceItem> {
   const extension = validateReferenceFileName(fileName)
-  const relativePath = join(referencesRelativeDir(), fileName)
+  // 归一化正斜杠：relativePath 是跨平台契约（novel-layout 已统一正斜杠），
+  // Windows 上 join 会产出反斜杠；absolutePath 用于文件操作，归一化后 resolve 同样有效。
+  const relativePath = join(referencesRelativeDir(), fileName).split('\\').join('/')
   const absolutePath = resolveProjectPath(projectPath, relativePath)
   const [info, content] = await Promise.all([stat(absolutePath), readFile(absolutePath, 'utf-8')])
 

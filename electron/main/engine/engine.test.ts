@@ -21,7 +21,8 @@ describe('NarraCat engine resolution', () => {
     })
   })
 
-  test('prefers the packaged app Agent Core resource when its manifest exists', () => {
+  // 断言的是 macOS 打包产物路径（/Applications/NarraCat.app/...），Windows 上无意义。
+  test.skipIf(process.platform === 'win32')('prefers the packaged app Agent Core resource when its manifest exists', () => {
     const agentCorePath = '/Applications/NarraCat.app/Contents/Resources/NarraCatAgentCore'
     const engine = resolveNarraCatEngine({
       appRoot: '/Applications/NarraCat.app/Contents/Resources/app.asar',
@@ -99,7 +100,8 @@ describe('NarraCat engine resolution', () => {
     )
   })
 
-  test('falls back to the packaged Agent Core resource path so diagnostics point at the bundled contract', () => {
+  // 断言的是 macOS 打包产物路径，Windows 上无意义。
+  test.skipIf(process.platform === 'win32')('falls back to the packaged Agent Core resource path so diagnostics point at the bundled contract', () => {
     const appRoot = '/Applications/NarraCat.app/Contents/Resources/app.asar'
     const resourcesPath = '/Applications/NarraCat.app/Contents/Resources'
 

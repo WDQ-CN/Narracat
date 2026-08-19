@@ -8,6 +8,24 @@ import { describe, expect, test } from 'bun:test'
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
+
+// Windows 无管理员/开发者模式时 symlinkSync 抛 EPERM——软链逃逸测试需要真实软链，
+// 无权限环境下跳过（测试环境限制，不是判据失效；mac/linux 与有权限的 Windows CI 全跑）。
+const canCreateSymlink = (() => {
+  if (process.platform !== 'win32') return true
+  const fs = require('node:fs') as typeof import('node:fs')
+  const os = require('node:os') as typeof import('node:os')
+  const path = require('node:path') as typeof import('node:path')
+  try {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'symlink-probe-'))
+    fs.writeFileSync(path.join(dir, 'target.txt'), 'x')
+    fs.symlinkSync(path.join(dir, 'target.txt'), path.join(dir, 'link'))
+    fs.rmSync(dir, { recursive: true, force: true })
+    return true
+  } catch {
+    return false
+  }
+})()
 import type { RuntimeCanUseTool } from '../../types.ts'
 import { createAskUserQuestionTool, createPiToolGuard, mapSdkToolFaceToPi } from './pi-tool-guard.ts'
 
@@ -105,7 +123,7 @@ describe('createPiToolGuard 目录圈禁', () => {
     expect(result?.reason).toContain('secret.txt')
   })
 
-  test('软链逃逸按 realpath 判：根内软链指向根外 → block', async () => {
+  test.skipIf(!canCreateSymlink)('软链逃逸按 realpath 判：根内软链指向根外 → block', async () => {
     const { inside, outside } = makeSandbox()
     symlinkSync(join(outside, 'secret.txt'), join(inside, 'sneaky-link'))
     const guard = createPiToolGuard({ allowedRoots: [inside], cwd: inside, signal: new AbortController().signal })
@@ -180,7 +198,7 @@ describe('createPiToolGuard 目录圈禁', () => {
     expect(bad?.block).toBe(true)
   })
 
-  test('Unicode 空格（NBSP）变体路径踩中软链逃逸：不归一会误放行，归一后正确 block', async () => {
+  test.skipIf(!canCreateSymlink)('Unicode 空格（NBSP）变体路径踩中软链逃逸：不归一会误放行，归一后正确 block', async () => {
     const { inside, outside } = makeSandbox()
     const NBSP = '\u00a0'
     // 根内放一个名字带普通空格的软链、指向根外文件。模型传入路径里的空格是 NBSP（pi expandPath

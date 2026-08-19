@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import {
   createManuscriptRevisionStore,
   parseManuscriptRevisionInput,
@@ -175,8 +175,10 @@ describe('manuscript revision store', () => {
 
 describe('manuscript revision IPC parsing', () => {
   test('只接受绝对项目路径、正章号和受控 revision id', () => {
+    // 期望用 resolve('/p') 构造：实现会对绝对路径做 resolve（Windows 上 '/p' → 当前盘 D:\p），
+    // 字面 '/p' 断言只在 mac/linux 成立。
     expect(parseManuscriptRevisionInput({ projectPath: '/p', chapter: 1 })).toEqual({
-      projectPath: '/p',
+      projectPath: resolve('/p'),
       chapter: 1,
     })
     expect(
@@ -185,7 +187,7 @@ describe('manuscript revision IPC parsing', () => {
         chapter: 1,
         revisionId: IDS[0],
       }),
-    ).toEqual({ projectPath: '/p', chapter: 1, revisionId: IDS[0] })
+    ).toEqual({ projectPath: resolve('/p'), chapter: 1, revisionId: IDS[0] })
     expect(
       parseRestoreManuscriptRevisionInput({
         projectPath: '/p',
@@ -193,7 +195,7 @@ describe('manuscript revision IPC parsing', () => {
         revisionId: IDS[0],
         expectedVisibleText: '正文',
       }),
-    ).toEqual({ projectPath: '/p', chapter: 1, revisionId: IDS[0], expectedVisibleText: '正文' })
+    ).toEqual({ projectPath: resolve('/p'), chapter: 1, revisionId: IDS[0], expectedVisibleText: '正文' })
 
     expect(() => parseManuscriptRevisionInput({ projectPath: 'relative', chapter: 1 })).toThrow()
     expect(() =>

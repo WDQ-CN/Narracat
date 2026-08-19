@@ -3,6 +3,21 @@ import { describe, expect, test, beforeEach, afterEach } from 'bun:test'
 import { mkdtempSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+// Windows 无管理员/开发者模式时 symlinkSync 抛 EPERM——symlink 逃逸测试需要真实软链，
+// 无权限环境下跳过（mac/linux 与有权限的 Windows CI 全跑）。
+const canCreateSymlink = (() => {
+  if (process.platform !== 'win32') return true
+  try {
+    const dir = mkdtempSync(join(tmpdir(), 'symlink-probe-'))
+    writeFileSync(join(dir, 'target.txt'), 'x')
+    symlinkSync(join(dir, 'target.txt'), join(dir, 'link'))
+    rmSync(dir, { recursive: true, force: true })
+    return true
+  } catch {
+    return false
+  }
+})()
+
 import { readLocalPackContent, copyPackToDraft } from './pack-local-content'
 import { createPackDraft, getPackDraft } from './pack-drafts'
 import { publishPackDraft } from './pack-publish'
@@ -121,7 +136,7 @@ describe('readLocalPackContent · 三种来源可见性', () => {
     expect(result).toBeNull()
   })
 
-  test('已装包目录内被植入 symlink 卡文件 → null（读取期 TOCTOU 复查，终审 Minor·纵深）', async () => {
+  test.skipIf(!canCreateSymlink)('已装包目录内被植入 symlink 卡文件 → null（读取期 TOCTOU 复查，终审 Minor·纵深）', async () => {
     const { id, version } = await publishPack()
     const packDir = join(userPacksDir(userDataPath), packVersionDirName(id, version))
     // 模拟安装后被外部进程篡改：把一张卡文件换成指向包目录之外文件的符号链接。
@@ -185,7 +200,7 @@ describe('copyPackToDraft · 权限门', () => {
     expect(meta).toBeNull()
   })
 
-  test('已装包目录内被植入 symlink → 拒绝复制（读取期 TOCTOU 复查，终审 Minor·纵深）', async () => {
+  test.skipIf(!canCreateSymlink)('已装包目录内被植入 symlink → 拒绝复制（读取期 TOCTOU 复查，终审 Minor·纵深）', async () => {
     const { id, version } = await publishPack()
     const packDir = join(userPacksDir(userDataPath), packVersionDirName(id, version))
     const outsideSecret = join(tmp, 'outside-secret.md')

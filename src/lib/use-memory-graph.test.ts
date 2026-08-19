@@ -132,7 +132,9 @@ describe('useMemoryGraph（useEffect 接线，逐字源码锁定）', () => {
   test('effect 体逐字调用 runMemoryGraphEffect，依赖数组为 [projectPath, reloadKey]', async () => {
     const { readFileSync } = await import('node:fs')
     const { fileURLToPath } = await import('node:url')
-    const source = readFileSync(fileURLToPath(new URL('./use-memory-graph.ts', import.meta.url)), 'utf-8')
+    // CRLF 归一化：Windows checkout（core.autocrlf=true）会把 LF 源码转成 CRLF，
+    // 逐字锁定 `\n` 片段会因此失配——先归一化再匹配（.gitattributes 已强制 LF 入库）。
+    const source = readFileSync(fileURLToPath(new URL('./use-memory-graph.ts', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain(
       'useEffect(() => runMemoryGraphEffect(projectPath, setState), [projectPath, reloadKey])',
@@ -142,7 +144,7 @@ describe('useMemoryGraph（useEffect 接线，逐字源码锁定）', () => {
   test('初始 loading 态跟着 Boolean(projectPath) 走（锁到语句边界，防止改成掺了其它条件的宽松子串仍能过）', async () => {
     const { readFileSync } = await import('node:fs')
     const { fileURLToPath } = await import('node:url')
-    const source = readFileSync(fileURLToPath(new URL('./use-memory-graph.ts', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./use-memory-graph.ts', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     // 锁住从 `loading:` 到紧接着的语句收尾（尾逗号 + 下一行闭合 `})`）——任何在
     // `Boolean(projectPath)` 和尾逗号之间插入的内容（如改成 `Boolean(projectPath) && x`）

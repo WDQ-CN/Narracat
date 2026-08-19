@@ -86,11 +86,20 @@ describe('resolveDownloadAlias', () => {
   })
 
   // 别名是白名单精确匹配：没登记的一律不认，免得凭空拼出不存在的产物名。
+  // win-x64/latest.exe 是 Windows 出包档已登记的别名（切片E），不再属于"未登记"。
   test('未登记的别名拒绝', () => {
     expect(resolveDownloadAlias('/mac-arm64/latest.zip')).toBeNull()
-    expect(resolveDownloadAlias('/win-x64/latest.exe')).toBeNull()
+    expect(resolveDownloadAlias('/mac-arm64/latest.exe')).toBeNull()
+    expect(resolveDownloadAlias('/win-x64/latest.zip')).toBeNull()
     expect(resolveDownloadAlias('/mac-arm64/latest.dmg/extra')).toBeNull()
     expect(resolveDownloadAlias('/mac-arm64/%2E%2E/latest.dmg')).toBeNull()
+  })
+
+  test('win-x64/latest.exe 别名已登记（Windows 出包档永久链接）', () => {
+    const alias = resolveDownloadAlias('/win-x64/latest.exe')
+    expect(alias).not.toBeNull()
+    expect(alias?.manifestName).toBe('latest.yml')
+    expect(alias?.assetSuffix).toBe('-win-x64.exe')
   })
 
   test('别名不会被主路径当成产物名解析', () => {

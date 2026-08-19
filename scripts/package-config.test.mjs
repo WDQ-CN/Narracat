@@ -82,6 +82,22 @@ describe('RC package configuration', () => {
     expect(packageJson.build.win.electronLanguages).toEqual(['zh-CN', 'en-US'])
   })
 
+  test('targets Windows x64 NSIS installer with its own win-x64 feed', () => {
+    // Windows 出包档（切片A）：nsis 安装器 + x64 架构；feed 走 win-x64 目录（顶层 publish
+    // 仍是 mac-arm64，平台级 publish 覆盖根级——electron-builder 平台配置优先于根配置）。
+    expect(packageJson.build.win.target).toEqual([{ target: 'nsis', arch: ['x64'] }])
+    expect(packageJson.build.win.publish).toEqual({
+      provider: 'generic',
+      url: 'https://update.narracat.com/win-x64',
+    })
+    // nsis 向导式安装（非 oneClick）：允许改安装目录，桌面+开始菜单快捷方式。
+    expect(packageJson.build.nsis.oneClick).toBe(false)
+    expect(packageJson.build.nsis.allowToChangeInstallationDirectory).toBe(true)
+    expect(packageJson.build.nsis.shortcutName).toBe('NarraCat')
+    // 图标源：electron-builder 接受 ≥256px PNG 并自动转 .ico 嵌入 exe。
+    expect(packageJson.build.win.icon).toBe('build/icon.png')
+  })
+
   test('packages only built runtime output into app.asar', () => {
     expect(packageJson.build.files).toEqual(['out/**', '!out/**/*.map'])
     expect(packageJson.build.files).not.toContain('node_modules/**')

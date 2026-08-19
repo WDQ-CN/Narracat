@@ -4,6 +4,21 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createLearnPathGuard } from './learn-path-guard'
 
+// Windows 无管理员/开发者模式时 symlinkSync 抛 EPERM——symlink 逃逸测试需要真实软链，
+// 无权限环境下跳过（mac/linux 与有权限的 Windows CI 全跑）。
+const canCreateSymlink = (() => {
+  if (process.platform !== 'win32') return true
+  try {
+    const dir = mkdtempSync(join(tmpdir(), 'symlink-probe-'))
+    writeFileSync(join(dir, 'target.txt'), 'x')
+    symlinkSync(join(dir, 'target.txt'), join(dir, 'link'))
+    rmSync(dir, { recursive: true, force: true })
+    return true
+  } catch {
+    return false
+  }
+})()
+
 let workspaceDir: string
 let outsideDir: string
 let cleanupRoots: string[]
@@ -51,7 +66,7 @@ describe('createLearnPathGuard（PR#477 外审 P1-1：学习会话路径沙盒�
     expect(result.behavior).toBe('deny')
   })
 
-  test('绝对路径字面在界内但 realpath 经真实 symlink 逃逸出界 → deny', async () => {
+  test.skipIf(!canCreateSymlink)('绝对路径字面在界内但 realpath 经真实 symlink 逃逸出界 → deny', async () => {
     const linkPath = join(workspaceDir, 'output', 'evil-link')
     symlinkSync(outsideDir, linkPath)
     const guard = createLearnPathGuard(workspaceDir)

@@ -547,7 +547,7 @@ describe('novel project loading', () => {
         kind: 'master-outline',
         title: '全书大纲',
         level: 0,
-        path: join('outline', 'master-outline.md'),
+        path: 'outline/master-outline.md',
         exists: true,
       }),
     )
@@ -566,7 +566,7 @@ describe('novel project loading', () => {
         title: '核心前提',
         level: 1,
         parentId: 'foundation',
-        path: join('bible', 'premise.md'),
+        path: 'bible/premise.md',
         exists: true,
       }),
     )
@@ -587,7 +587,7 @@ describe('novel project loading', () => {
         title: '林舟',
         level: 2,
         parentId: 'characters',
-        path: join('bible', 'characters', '林舟.md'),
+        path: 'bible/characters/林舟.md',
         exists: true,
       }),
     )
@@ -598,7 +598,7 @@ describe('novel project loading', () => {
         title: '边境城',
         level: 2,
         parentId: 'world',
-        path: join('bible', 'world', '边境城.md'),
+        path: 'bible/world/边境城.md',
         exists: true,
       }),
     )
@@ -609,7 +609,7 @@ describe('novel project loading', () => {
         title: '江湖规则体系',
         level: 2,
         parentId: 'world',
-        path: join('bible', 'world', 'jianghu-rules.md'),
+        path: 'bible/world/jianghu-rules.md',
         exists: true,
       }),
     )
@@ -630,7 +630,7 @@ describe('novel project loading', () => {
         level: 1,
         volumeNumber: 1,
         parentId: 'volume-1',
-        path: join('outline', 'vol-01', 'vol-outline.md'),
+        path: 'outline/vol-01/vol-outline.md',
         exists: true,
       }),
     )
@@ -676,7 +676,7 @@ describe('novel project loading', () => {
     expect(detail.treeItems.find((item) => item.id === 'narrator-voice')).toMatchObject({
       kind: 'narrator-voice',
       title: '叙事声音',
-      path: join('outline', 'master-outline.md'),
+      path: 'outline/master-outline.md',
       exists: true,
     })
   })
@@ -695,7 +695,7 @@ describe('novel project loading', () => {
         title: '场景设定',
         level: 1,
         parentId: 'foundation',
-        path: join('bible', 'scenes'),
+        path: 'bible/scenes',
         exists: true,
       }),
     )
@@ -735,7 +735,7 @@ describe('novel project loading', () => {
         id: 'bible-scenes',
         kind: 'bible-group',
         title: '场景设定',
-        path: join('bible', 'scenes'),
+        path: 'bible/scenes',
         exists: true,
       }),
     )

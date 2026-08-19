@@ -10,6 +10,13 @@
 
 const CHAPTER_MANUSCRIPT_PATH_REGEX = /manuscript\/(vol-[0-9]+\/)?ch-?[0-9]+\.md$/
 const BRIEF_STAGING_PATH_REGEX = /\.narracat\/staging\/ch-[^/]*\.brief\.md$/
+
+// Windows 的 join()/resolve() 产反斜杠路径（C:\...\manuscript\ch-001.md），
+// 而两条路径正则用正斜杠写死——不归一化会让钩子在 Windows 静默失效（字数提示/系统词硬门
+// 都不触发）。归一化只影响匹配，不改调用方传入的展示路径。
+function toPosixPath(filePath: string): string {
+  return filePath.split('\\').join('/')
+}
 // 系统词表（原 check-brief-lint.sh 的 FORBIDDEN ERE 逐字移植；shell 版已删，此处是唯一一份）
 const BRIEF_FORBIDDEN_PATTERN =
   /novel_[a-z_]+|craft_pack_hints|style_directive|through_line_anchor|previous_chapter_briefs|ending_snippet|payoff_beat|storyline_focus|foreshadowing_touch|foreshadowing_due|word_count_range|chapter_outline|style_examples|reference_path|pack_id|pack_path|manuscript_path|outline_path|semantic_context|state_changes|planned_state_changes|heartbeat_moment|continuation_hook|emotional_tone|character_cards|opening_snippet|core_foreshadowing|core_experience|current_arc_tension|current_antagonist_agent|mechanism_note|arc_summaries|matched_triggers|key_events|world_rules|derived_relationships|character_relationships|\b(canon|tentative|open)\b|[A-Z]-[A-Z0-9]+(-[A-Z0-9]+)*/
@@ -30,7 +37,7 @@ export interface ChapterWordcountArgs {
 export function checkChapterWordcount(args: ChapterWordcountArgs): string | undefined {
   const { filePath, content, wordsPerChapter } = args
 
-  if (!CHAPTER_MANUSCRIPT_PATH_REGEX.test(filePath)) {
+  if (!CHAPTER_MANUSCRIPT_PATH_REGEX.test(toPosixPath(filePath))) {
     return undefined
   }
 
@@ -83,7 +90,7 @@ export type BriefLintResult =
 export function lintBriefForSystemWords(args: BriefLintArgs): BriefLintResult {
   const { filePath, content, state, now = Date.now() } = args
 
-  if (!BRIEF_STAGING_PATH_REGEX.test(filePath)) {
+  if (!BRIEF_STAGING_PATH_REGEX.test(toPosixPath(filePath))) {
     return { verdict: 'clean' }
   }
 

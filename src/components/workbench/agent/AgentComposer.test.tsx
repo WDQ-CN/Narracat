@@ -60,7 +60,7 @@ describe('AgentComposer', () => {
   })
 
   test('accepts workbench handoff drafts without losing existing user input silently', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain('composerHandoffRequest')
     expect(source).toContain('data-agent-composer-handoff-confirm="true"')
@@ -70,7 +70,7 @@ describe('AgentComposer', () => {
   })
 
   test('「调整内容」handoff 用空输入框+占位引导取代旧的「要求：」预填模板，边界约束发送时才包装进 prompt', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     // 旧模板标记解析已删除，占位符改由 adjust spec 驱动引导文案
     expect(source).not.toContain('hasAgentComposerHandoffRequirement')
@@ -87,7 +87,7 @@ describe('AgentComposer', () => {
   })
 
   test('keeps command chips in the bottom action bar below the text editor', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain('data-agent-composer-action-bar="true"')
     expect(source).toContain('data-agent-composer-command-slot="true"')
@@ -104,7 +104,7 @@ describe('AgentComposer', () => {
   })
 
   test('uses command-specific placeholders without silently targeting the active chapter', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain('getAgentQuickActionPlaceholder(selectedAction)')
     expect(source).toContain('data-placeholder={composerPlaceholder}')
@@ -116,7 +116,7 @@ describe('AgentComposer', () => {
   })
 
   test('keeps the command menu in a floating popover outside composer flow', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain('<AgentCommandMenuPopover expanded={expanded}>')
     expect(source).toContain('data-agent-command-menu-popover="true"')
@@ -127,7 +127,7 @@ describe('AgentComposer', () => {
   })
 
   test('展开时指令面板锚定动作栏上方，避免溢出面板顶部', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     // 展开态用贴近动作栏的锚点，折叠态保持浮在整块上方
     expect(source).toContain("expanded ? 'bottom-12' : 'bottom-[calc(100%+0.5rem)]'")
@@ -135,7 +135,7 @@ describe('AgentComposer', () => {
   })
 
   test('点击指令面板与触发器之外可关闭菜单', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain("document.addEventListener('pointerdown', handleOutsidePointerDown)")
     expect(source).toContain("target.closest('[data-agent-command-menu-popover]')")
@@ -146,7 +146,7 @@ describe('AgentComposer', () => {
   })
 
   test('renders removable composer reference context outside the editable draft', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain('data-agent-composer-reference-context="true"')
     expect(source).toContain('data-agent-composer-reference-remove="true"')
@@ -162,7 +162,7 @@ describe('AgentComposer', () => {
   })
 
   test('does not reopen the side-effect confirmation after removing a command chip', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
     const clearSelectedActionBody = source.match(/function clearSelectedAction\(\) \{(?<body>[\s\S]*?)\n  \}/)?.groups?.body ?? ''
 
     expect(clearSelectedActionBody).toContain('setDismissedSuggestionDraft(normalizedDraft)')
@@ -197,7 +197,7 @@ describe('AgentComposer', () => {
     expect(html).toContain('data-agent-slash-command-hint="true"')
 
     // 组件里由 slashCommandMenuOpen（草稿以 / 开头）驱动，⌘ 菜单不传即默认隐藏
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
     expect(source).toContain('slashTriggered={slashCommandMenuOpen}')
   })
 
@@ -226,7 +226,7 @@ describe('AgentComposer', () => {
   })
 
   test('moves slash command focus with arrow keys and chooses the focused option with Enter', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain("event.key === 'ArrowDown' || event.key === 'ArrowUp'")
     expect(source).toContain('setSlashCommandFocusIndex')
@@ -244,7 +244,7 @@ describe('AgentComposer', () => {
   })
 
   test('展开动画用 ≤300ms 的 framer-motion spring 且尊重 reduced-motion', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain("from 'framer-motion'")
     expect(source).toContain('useReducedMotion')
@@ -255,7 +255,7 @@ describe('AgentComposer', () => {
   })
 
   test('展开按钮限非运行态，发送后与运行时自动收起', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain('data-agent-composer-expand-toggle="true"')
     expect(source).toContain('setExpanded((value) => !value)')
@@ -264,14 +264,14 @@ describe('AgentComposer', () => {
   })
 
   test('把展开态通知父级（供浮层布局，避免挤压历史区）', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain('onExpandedChange?: (expanded: boolean) => void')
     expect(source).toContain('onExpandedChange?.(expanded)')
   })
 
   test('发送「写下一章」前点击时拉取记忆待同步 map，取消则不发送且不清空草稿', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     // 与 IPC 读取 wrapper 及纯函数产文案对齐（复用 WorkbenchStage 同一套拦截逻辑）
     expect(source).toContain(
@@ -312,7 +312,7 @@ describe('AgentComposer', () => {
   // 依赖 useAgentStore 的用例也同受此限，非本次改动引入），运行态隐藏改走源码断言核对同一条
   // 门控（与左侧指令 chip「运行中隐藏、不占位」同规则）。
   test('运行态隐藏快捷模型切换器且不占位（切片②T3）', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
 
     expect(source).toContain("import { AgentModelSwitcher } from './AgentModelSwitcher'")
     expect(source).toContain('{!isRunning ? <AgentModelSwitcher /> : null}')
@@ -326,7 +326,7 @@ describe('AgentComposer', () => {
   })
 
   test('任务发出成功后清空指令 chip（dogfood #4：run 结束不应重新冒出旧 chip）', () => {
-    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8')
+    const source = readFileSync(fileURLToPath(new URL('./AgentComposer.tsx', import.meta.url)), 'utf-8').replaceAll('\r\n', '\n')
     const handleSubmitBody = source.match(/async function handleSubmit\([\s\S]*?\n  \}\n/)?.[0] ?? ''
 
     // 成功块（startAgentRun 之后、catch 之前）必须清 selectedAction，否则 run 期间被 !isRunning 隐藏的

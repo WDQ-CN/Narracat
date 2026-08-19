@@ -52,7 +52,9 @@ export function shouldShowNativeResultNotification({
   notificationSupported,
   platform,
 }: NativeResultNotificationDecision): boolean {
-  return platform === 'darwin' && enabled && !appActive && notificationSupported
+  // darwin：macOS 通知中心。win32：Windows 10+ toast（Electron Notification 原生支持，
+  // 打包态首次弹窗走系统设置授权）。其余平台（linux 等）暂不支持原生推送。
+  return (platform === 'darwin' || platform === 'win32') && enabled && !appActive && notificationSupported
 }
 
 export function createNativeResultNotificationText(notification: ResultNotification): {

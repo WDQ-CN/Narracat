@@ -6,10 +6,15 @@ import {
   MAC_PLATFORM_DIR,
   RELEASE_REPO,
   UPDATE_FEED_BASE_URL,
+  WIN_LATEST_DOWNLOAD_FILE,
+  WIN_PLATFORM_DIR,
   macDownloadUrl,
   macFeedUrl,
   releaseAssetFileNames,
   releaseTag,
+  releaseWinAssetFileNames,
+  winDownloadUrl,
+  winFeedUrl,
 } from './update-feed.mjs'
 
 const repoRoot = join(import.meta.dirname, '..')
@@ -35,6 +40,26 @@ describe('update feed 契约', () => {
   test('Worker 的别名白名单里登记了这条永久链接', () => {
     const source = readFileSync(join(repoRoot, 'workers/narracat-update/src/index.ts'), 'utf8')
     expect(source).toContain(`'/${MAC_PLATFORM_DIR}/${MAC_LATEST_DOWNLOAD_FILE}'`)
+  })
+
+  test('win feed 指向 win-x64 子目录（Windows 出包档）', () => {
+    expect(WIN_PLATFORM_DIR).toBe('win-x64')
+    expect(winFeedUrl()).toBe('https://update.narracat.com/win-x64')
+    expect(winDownloadUrl()).toBe('https://update.narracat.com/win-x64/latest.exe')
+    expect(WIN_LATEST_DOWNLOAD_FILE).toBe('latest.exe')
+  })
+
+  test('Windows 一次发版的三个资产文件名（nsis + blockmap + latest.yml）', () => {
+    expect(releaseWinAssetFileNames('0.1.1880')).toEqual([
+      'NarraCat-0.1.1880-win-x64.exe',
+      'NarraCat-0.1.1880-win-x64.exe.blockmap',
+      'latest.yml',
+    ])
+  })
+
+  test('package.json 的 win publish 配置与 win feed 基址一致', () => {
+    const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
+    expect(pkg.build.win.publish).toEqual({ provider: 'generic', url: 'https://update.narracat.com/win-x64' })
   })
 
   test('发布仓是那个已 public 的新仓', () => {

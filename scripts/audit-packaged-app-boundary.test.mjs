@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 import {
   auditAsarEntries,
@@ -134,14 +134,39 @@ describe('packaged app.asar boundary audit', () => {
     expect(classifyPackagedResourceEntry(`${base}/darwin/x64/onnxruntime_binding.node`).ok).toBe(false)
   })
 
+  test('Windows 目标平台：.pak locale 白名单 + win32/x64 二进制放行 + 其余平台拦截', () => {
+    const target = { platform: 'win32', arch: 'x64' }
+
+    // win locale 是 .pak（连字符命名），lproj 目录在 win 档不算 locale 条目（走普通路径判定）
+    expect(classifyPackagedResourceEntry('en-US.pak', target).ok).toBe(true)
+    expect(classifyPackagedResourceEntry('zh-CN.pak', target).ok).toBe(true)
+    expect(classifyPackagedResourceEntry('fr-FR.pak', target).ok).toBe(false)
+
+    // win32/x64 二进制放行；darwin/linux 拦截
+    const base = 'NarraCatAgentCore/mcp-server/node_modules/onnxruntime-node/bin/napi-v3'
+    expect(classifyPackagedResourceEntry(`${base}/win32/x64/onnxruntime_binding.node`, target).ok).toBe(true)
+    expect(classifyPackagedResourceEntry(`${base}/darwin/arm64/onnxruntime_binding.node`, target).ok).toBe(false)
+    expect(classifyPackagedResourceEntry(`${base}/linux/x64/onnxruntime_binding.node`, target).ok).toBe(false)
+  })
+
+  test('Windows 默认产物路径指向 dist/win-unpacked/NarraCat.exe', () => {
+    const target = { platform: 'win32', arch: 'x64' }
+    expect(resolvePackagedAppPath([], '/repo', target)).toBe(resolve('/repo', 'dist', 'win-unpacked', 'NarraCat.exe'))
+    expect(resolvePackagedAsarPath([], '/repo', target)).toBe(
+      resolve('/repo', 'dist', 'win-unpacked', 'NarraCat.exe', 'resources', 'app.asar'),
+    )
+  })
+
   test('resolves the default packaged app.asar path', () => {
-    expect(resolvePackagedAppPath([], '/repo')).toBe(join('/repo', 'dist', 'mac-arm64', 'NarraCat.app'))
+    // 用 resolve 构造期望（而非 join）：resolve 与实现的 resolveFromRoot 语义一致，
+    // Windows 上 join('/repo',...) 会丢盘符、resolve 保留，两者在 mac/linux 等价但 win 不同。
+    expect(resolvePackagedAppPath([], '/repo')).toBe(resolve('/repo', 'dist', 'mac-arm64', 'NarraCat.app'))
     expect(resolvePackagedAsarPath([], '/repo')).toBe(
-      join('/repo', 'dist', 'mac-arm64', 'NarraCat.app', 'Contents', 'Resources', 'app.asar'),
+      resolve('/repo', 'dist', 'mac-arm64', 'NarraCat.app', 'Contents', 'Resources', 'app.asar'),
     )
     expect(resolvePackagedAsarPath(['--app', 'dist/custom/NarraCat.app'], '/repo')).toBe(
-      join('/repo', 'dist', 'custom', 'NarraCat.app', 'Contents', 'Resources', 'app.asar'),
+      resolve('/repo', 'dist', 'custom', 'NarraCat.app', 'Contents', 'Resources', 'app.asar'),
     )
-    expect(resolvePackagedAsarPath(['--asar=dist/app.asar'], '/repo')).toBe(join('/repo', 'dist', 'app.asar'))
+    expect(resolvePackagedAsarPath(['--asar=dist/app.asar'], '/repo')).toBe(resolve('/repo', 'dist', 'app.asar'))
   })
 })

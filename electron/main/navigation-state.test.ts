@@ -10,7 +10,8 @@ import {
 
 describe('navigation state store', () => {
   test('uses the App userData navigation-state.json path', () => {
-    expect(navigationStatePath('/app/user-data')).toBe('/app/user-data/navigation-state.json')
+    // join 构造期望（Windows 反斜杠 / mac 正斜杠），实现用 join 拼接
+    expect(navigationStatePath('/app/user-data')).toBe(join('/app/user-data', 'navigation-state.json'))
   })
 
   test('falls back to Library for missing or damaged state', async () => {

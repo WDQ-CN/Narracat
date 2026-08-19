@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { realpathSync } from 'node:fs'
 import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { describe, expect, test } from 'bun:test'
 
@@ -39,6 +39,45 @@ async function runLoadEnvFilesInSubprocess(tmpDir) {
 }
 
 describe('RC package script', () => {
+  test('builds the Windows x64 NSIS RC with win-specific gates', () => {
+    const steps = createPackageRcSteps({ clientVersion: '0.1.42', platform: 'win32' })
+
+    expect(steps.map((step) => step.label)).toEqual([
+      'verify Windows Authenticode signing identity',
+      'check node runtime',
+      'verify NarraCat Agent Core',
+      'prepare NarraCat Agent Core',
+      'stage NarraCat Agent Core (whitelist)',
+      'ensure Electron-ABI native modules',
+      'prepare embedding model',
+      'probe staged Agent Core runtime',
+      'build Electron bundles',
+      'package Windows x64 NSIS（仅签名）',
+      'audit packaged app boundary',
+      'verify Windows signed artifact',
+    ])
+    // 签名闸是 Windows 版本
+    expect(steps[0].args.some((arg) => basename(arg) === 'check-windows-signing-identity.mjs')).toBe(true)
+    // 打包走 --win nsis --x64，无 mac 参数
+    const builder = steps.find((step) => step.label.includes('package Windows'))
+    expect(builder.args).toContain('--win')
+    expect(builder.args).toContain('nsis')
+    expect(builder.args).toContain('--x64')
+    expect(builder.args).not.toContain('--mac')
+    expect(builder.args).not.toContain('--config.mac.notarize')
+    // win 档 stage/audit 带平台 env
+    const stage = steps.find((step) => step.label === 'stage NarraCat Agent Core (whitelist)')
+    expect(stage.env).toEqual({ NARRACAT_NATIVE_PLATFORM: 'win32', NARRACAT_NATIVE_ARCH: 'x64' })
+    const audit = steps.find((step) => step.label === 'audit packaged app boundary')
+    expect(audit.env).toEqual({ NARRACAT_NATIVE_PLATFORM: 'win32', NARRACAT_NATIVE_ARCH: 'x64' })
+    // 无 GUI smoke、无 notarize（Windows 无公证概念）
+    expect(steps.some((step) => step.label === 'smoke packaged app')).toBe(false)
+    expect(steps.some((step) => step.label === 'notarize dmg container')).toBe(false)
+    // 收尾是 Windows 签名验证
+    expect(steps.at(-1).label).toBe('verify Windows signed artifact')
+    expect(steps.at(-1).args.some((arg) => basename(arg) === 'verify-windows-signed-artifact.mjs')).toBe(true)
+  })
+
   test('builds the macOS arm64 RC with the derived client build version', () => {
     const steps = createPackageRcSteps({ clientVersion: '0.1.42' })
 
@@ -57,22 +96,22 @@ describe('RC package script', () => {
       'smoke packaged app',
       'verify signed artifact',
     ])
-    expect(steps[0].args.some((arg) => arg.endsWith('/scripts/check-signing-identity.mjs'))).toBe(true)
+    expect(steps[0].args.some((arg) => basename(arg) === 'check-signing-identity.mjs')).toBe(true)
     expect(steps[2].args).toContain('--check-version')
     expect(steps[2].args).toContain('--source')
-    expect(steps[2].args.some((arg) => arg.endsWith('/agent-core/narracat'))).toBe(true)
-    expect(steps[4].args.some((arg) => arg.endsWith('/scripts/stage-narracat-agent-core.mjs'))).toBe(true)
-    expect(steps[5].args.some((arg) => arg.endsWith('/scripts/ensure-electron-native.mjs'))).toBe(true)
-    expect(steps[6].args.some((arg) => arg.endsWith('/scripts/prepare-embedding-model.mjs'))).toBe(true)
-    expect(steps[7].args.some((arg) => arg.endsWith('/scripts/probe-staged-agent-core-runtime.mjs'))).toBe(true)
+    expect(steps[2].args.some((arg) => basename(arg) === 'narracat')).toBe(true)
+    expect(steps[4].args.some((arg) => basename(arg) === 'stage-narracat-agent-core.mjs')).toBe(true)
+    expect(steps[5].args.some((arg) => basename(arg) === 'ensure-electron-native.mjs')).toBe(true)
+    expect(steps[6].args.some((arg) => basename(arg) === 'prepare-embedding-model.mjs')).toBe(true)
+    expect(steps[7].args.some((arg) => basename(arg) === 'probe-staged-agent-core-runtime.mjs')).toBe(true)
     expect(steps[9].args).toContain('--mac')
     expect(steps[9].args).toContain('dmg')
     expect(steps[9].args).toContain('zip')
     expect(steps[9].args).toContain('--arm64')
     expect(steps[9].args).toContain('--config.extraMetadata.version=0.1.42')
     expect(steps[9].args).toContain('--config.mac.notarize=false')
-    expect(steps[10].args.some((arg) => arg.endsWith('/scripts/audit-packaged-app-boundary.mjs'))).toBe(true)
-    expect(steps[12].args.some((arg) => arg.endsWith('/scripts/verify-signed-artifact.mjs'))).toBe(true)
+    expect(steps[10].args.some((arg) => basename(arg) === 'audit-packaged-app-boundary.mjs')).toBe(true)
+    expect(steps[12].args.some((arg) => basename(arg) === 'verify-signed-artifact.mjs')).toBe(true)
     expect(steps[12].args).not.toContain('--notarized')
   })
 })
@@ -86,10 +125,10 @@ describe('两道运行时防线（staged 探针 + 产物冒烟）', () => {
     const labels = steps.map((step) => step.label)
     const smoke = steps.find((step) => step.label === 'smoke packaged app')
 
-    expect(smoke.args.some((arg) => arg.endsWith('/scripts/smoke-memory.mjs'))).toBe(true)
-    expect(smoke.env.NARRACAT_SMOKE_ELECTRON_BIN).toMatch(
-      /\/dist\/mac-arm64\/NarraCat\.app\/Contents\/MacOS\/NarraCat$/,
-    )
+    expect(smoke.args.some((arg) => basename(arg) === 'smoke-memory.mjs')).toBe(true)
+    // 路径分隔符跨平台（win 反斜杠 / mac 正斜杠）：断言 basename 与关键目录段
+    const smokeBin = smoke.env.NARRACAT_SMOKE_ELECTRON_BIN.replaceAll('\\', '/')
+    expect(smokeBin.endsWith('/dist/mac-arm64/NarraCat.app/Contents/MacOS/NarraCat')).toBe(true)
     // 顺序硬约束：必须在产物存在之后跑，否则 .app 还没生成
     expect(labels.indexOf('smoke packaged app')).toBeGreaterThan(
       labels.findIndex((label) => label.includes('package macOS')),
@@ -170,7 +209,7 @@ describe('release 档：dmg 容器公证步骤', () => {
       'verify signed artifact',
     ])
     const notarizeStep = steps.find((step) => step.label === 'notarize dmg container')
-    expect(notarizeStep.args.some((arg) => arg.endsWith('/scripts/notarize-dmg.mjs'))).toBe(true)
+    expect(notarizeStep.args.some((arg) => basename(arg) === 'notarize-dmg.mjs')).toBe(true)
     // dmg 路径须显式传递（不依赖下游脚本按 dist/ 里 mtime 最新去猜是哪个产物）
     expect(notarizeStep.args).toContain('--dmg')
     expect(notarizeStep.args.some((arg) => arg.endsWith('NarraCat-0.1.9999-mac-arm64.dmg'))).toBe(true)

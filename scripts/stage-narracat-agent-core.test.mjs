@@ -9,6 +9,7 @@ import {
   FORBIDDEN_RELATIVE_PATHS,
   findFirstStagedRuntimePayloadViolation,
   hasPrunedMcpNodeModuleDirectory,
+  npmCommand,
   pruneStagedMcpRuntimePayload,
   shouldBundleAgentCorePath,
   shouldPruneForeignPlatformBinary,
@@ -137,6 +138,10 @@ describe('NarraCat Agent Core 打包白名单', () => {
     expect(hasPrunedMcpNodeModuleDirectory('yaml/dist/doc/directives.js')).toBe(false)
   })
 
+  test('npm 命令在 Windows 上带 .cmd 后缀（execFile 不走 PATH shim）', () => {
+    expect(['npm', 'npm.cmd']).toContain(npmCommand())
+  })
+
   test('回归守卫黑名单锚点覆盖主要研发痕迹', () => {
     expect(FORBIDDEN_RELATIVE_PATHS).toContain('eval')
     expect(FORBIDDEN_RELATIVE_PATHS).toContain('CHANGELOG.md')
@@ -214,6 +219,39 @@ describe('NarraCat Agent Core 打包白名单', () => {
     expect(shouldBundleAgentCorePath(`${base}/linux/x64/onnxruntime_binding.node`)).toBe(false)
     expect(shouldBundleAgentCorePath(`${base}/win32/arm64/onnxruntime_binding.node`)).toBe(false)
     expect(shouldBundleAgentCorePath(`${base}/darwin/x64/onnxruntime_binding.node`)).toBe(false)
+  })
+
+  test('Windows 目标平台（NARRACAT_NATIVE_PLATFORM=win32/x64）：保留 win32/x64、裁其余', () => {
+    const target = { platform: 'win32', arch: 'x64' }
+    const base = 'mcp-server/node_modules/onnxruntime-node/bin/napi-v3'
+
+    // 目标平台保留
+    expect(shouldPruneForeignPlatformBinary(`${base}/win32/x64/onnxruntime_binding.node`, target)).toBe(false)
+    expect(shouldPruneForeignPlatformBinary(`${base}/win32`, target)).toBe(false)
+    // 非目标平台/架构裁掉
+    expect(shouldPruneForeignPlatformBinary(`${base}/darwin`, target)).toBe(true)
+    expect(shouldPruneForeignPlatformBinary(`${base}/darwin/arm64/onnxruntime_binding.node`, target)).toBe(true)
+    expect(shouldPruneForeignPlatformBinary(`${base}/win32/arm64/onnxruntime_binding.node`, target)).toBe(true)
+    expect(shouldPruneForeignPlatformBinary(`${base}/linux/x64/onnxruntime_binding.node`, target)).toBe(true)
+    // 白名单谓词同参
+    expect(shouldBundleAgentCorePath(`${base}/win32/x64/onnxruntime_binding.node`, target)).toBe(true)
+    expect(shouldBundleAgentCorePath(`${base}/darwin/arm64/onnxruntime_binding.node`, target)).toBe(false)
+  })
+
+  test('Windows 目标平台的正向断言认 .dll（mac 认 .dylib）', async () => {
+    const destination = await mkdtemp(join(tmpdir(), 'narracat-stage-onnx-win-'))
+    const binaryDir = join('mcp-server', 'node_modules', 'onnxruntime-node', 'bin', 'napi-v3', 'win32', 'x64')
+    try {
+      await mkdir(join(destination, binaryDir), { recursive: true })
+      await writeFile(join(destination, binaryDir, 'onnxruntime_binding.node'), 'binary\n')
+      await writeFile(join(destination, binaryDir, 'onnxruntime.dll'), 'dll\n')
+
+      await expect(
+        assertBundledOnnxRuntimeNativeBinaryPresent(destination, { platform: 'win32', arch: 'x64' }),
+      ).resolves.toBeUndefined()
+    } finally {
+      await rm(destination, { recursive: true, force: true })
+    }
   })
 
   describe('正向断言：暂存树必须真的留着 darwin/arm64 的 onnxruntime 二进制（防裁剪谓词未来静默失效）', () => {

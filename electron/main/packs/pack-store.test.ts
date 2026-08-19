@@ -3,6 +3,21 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, statSync, rmSync, 
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import AdmZip from 'adm-zip'
+
+// Windows 无管理员/开发者模式时 symlinkSync 抛 EPERM——symlink 逃逸测试需要真实软链，
+// 无权限环境下跳过（mac/linux 与有权限的 Windows CI 全跑）。
+const canCreateSymlink = (() => {
+  if (process.platform !== 'win32') return true
+  try {
+    const dir = mkdtempSync(join(tmpdir(), 'symlink-probe-'))
+    writeFileSync(join(dir, 'target.txt'), 'x')
+    symlinkSync(join(dir, 'target.txt'), join(dir, 'link'))
+    rmSync(dir, { recursive: true, force: true })
+    return true
+  } catch {
+    return false
+  }
+})()
 import {
   listCapabilityPacks,
   previewCapabilityPackImport,
@@ -751,7 +766,7 @@ describe('两阶段导入', () => {
   })
 
   // Fix 1（PR#475）：目录导入 symlink 逃逸——校验期整树拒绝符号链接。
-  test('卡文件是指向包外文件的 symlink → invalid（含「符号链接」）', async () => {
+  test.skipIf(!canCreateSymlink)('卡文件是指向包外文件的 symlink → invalid（含「符号链接」）', async () => {
     const outside = join(tmp, 'outside.md')
     writeFileSync(outside, '包外机密内容\n')
     const src = join(tmp, 'src-file-symlink')
@@ -766,7 +781,7 @@ describe('两阶段导入', () => {
     if (preview.status === 'invalid') expect(preview.message).toContain('符号链接')
   })
 
-  test('目录型 symlink（cards 整目录是链接）→ invalid', async () => {
+  test.skipIf(!canCreateSymlink)('目录型 symlink（cards 整目录是链接）→ invalid', async () => {
     const outsideDir = join(tmp, 'outside-cards')
     mkdirSync(outsideDir, { recursive: true })
     writeFileSync(join(outsideDir, 'v.md'), '[runtime]\n机制\n')

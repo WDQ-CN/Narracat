@@ -2,6 +2,21 @@ import { describe, expect, test, beforeEach, afterEach } from 'bun:test'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+// Windows 无管理员/开发者模式时 symlinkSync 抛 EPERM——symlink 逃逸测试需要真实软链，
+// 无权限环境下跳过（mac/linux 与有权限的 Windows CI 全跑）。
+const canCreateSymlink = (() => {
+  if (process.platform !== 'win32') return true
+  try {
+    const dir = mkdtempSync(join(tmpdir(), 'symlink-probe-'))
+    writeFileSync(join(dir, 'target.txt'), 'x')
+    symlinkSync(join(dir, 'target.txt'), join(dir, 'link'))
+    rmSync(dir, { recursive: true, force: true })
+    return true
+  } catch {
+    return false
+  }
+})()
+
 import AdmZip from 'adm-zip'
 import {
   listPackDrafts,
@@ -231,7 +246,7 @@ describe('export → import 往返', () => {
     expect(await listPackDrafts({ userDataPath })).toEqual([])
   })
 
-  test('工程目录含符号链接 → 导出被拒（防止 zip 打包时跟随链接泄漏包外文件内容）', async () => {
+  test.skipIf(!canCreateSymlink)('工程目录含符号链接 → 导出被拒（防止 zip 打包时跟随链接泄漏包外文件内容）', async () => {
     const meta = await createPackDraft({ userDataPath, name: '带链接的草稿' })
     const outsideFile = join(tmp, 'secret.txt')
     writeFileSync(outsideFile, '机密内容')

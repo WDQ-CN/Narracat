@@ -1,0 +1,24 @@
+# 强制文本文件 LF 行尾（git 仓库内统一 LF；Windows checkout 时保持 LF，不转 CRLF）。
+# 背景：本项目大量源码锁定测试依赖 LF 行尾符（readFileSync 源码后匹配特定片段）。
+# Windows 上 core.autocrlf=true 会把 checkout 转成 CRLF，这些测试全挂。
+# 没有本文件时，Windows 开发者必须手动关 autocrlf 或改测试，均易踩坑。
+# 二进制文件（图片/原生模块/模型）显式声明，防止被当作文本转换。
+* text=auto eol=lf
+
+*.png binary
+*.icns binary
+*.ico binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.node binary
+*.dll binary
+*.dylib binary
+*.so binary
+*.onnx binary
+*.zip binary
+*.dmg binary
+*.exe binary
+*.db binary
+*.wasm binary

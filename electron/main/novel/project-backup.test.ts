@@ -10,6 +10,24 @@ import {
   writeFile,
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+
+// Windows 无管理员/开发者模式时 symlinkSync 抛 EPERM——软链测试需要真实软链，
+// 无权限环境下跳过（mac/linux 与有权限的 Windows CI 全跑）。
+const canCreateSymlink = (() => {
+  if (process.platform !== 'win32') return true
+  try {
+    const fs = require('node:fs') as typeof import('node:fs')
+    const os = require('node:os') as typeof import('node:os')
+    const path = require('node:path') as typeof import('node:path')
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'symlink-probe-'))
+    fs.writeFileSync(path.join(dir, 'target.txt'), 'x')
+    fs.symlinkSync(path.join(dir, 'target.txt'), path.join(dir, 'link'))
+    fs.rmSync(dir, { recursive: true, force: true })
+    return true
+  } catch {
+    return false
+  }
+})()
 import { join } from 'node:path'
 import AdmZip from 'adm-zip'
 
@@ -76,9 +94,11 @@ afterEach(async () => {
 describe('novel project backup', () => {
   test('round-trips all regular project files with hashes, including drafts, revisions and unknown files', async () => {
     const project = await createNovelProjectFixture({ name: 'backup-round-trip' })
-    const draftPath = join('.narracat', 'manuscript-drafts', 'ch-001.json')
-    const revisionPath = join('.narracat', 'manuscript-revisions', 'ch-001', 'revision-1.md')
-    const unknownPath = join('future-assets', 'unknown.bin')
+    // 正斜杠字面量：既用于写 fixture 文件（Windows 文件 API 接受正斜杠），
+    // 又用于断言备份清单（manifest.path 是 zip 内正斜杠契约）。
+    const draftPath = '.narracat/manuscript-drafts/ch-001.json'
+    const revisionPath = '.narracat/manuscript-revisions/ch-001/revision-1.md'
+    const unknownPath = 'future-assets/unknown.bin'
     await writeNovelFixtureFile(project.root, draftPath, '{"content":"未提交草稿"}\n')
     await writeNovelFixtureFile(project.root, revisionPath, '历史修订\n')
     await writeNovelFixtureFile(project.root, unknownPath, 'future-data')
@@ -121,7 +141,7 @@ describe('novel project backup', () => {
     await rm(project.root, { recursive: true, force: true })
   })
 
-  test('rejects a source symlink and reports its project-relative path', async () => {
+  test.skipIf(!canCreateSymlink)('rejects a source symlink and reports its project-relative path', async () => {
     const project = await createNovelProjectFixture({ name: 'backup-symlink' })
     const outsidePath = join(root, 'outside.txt')
     await writeFile(outsidePath, 'secret', 'utf8')
