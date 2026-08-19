@@ -72,10 +72,8 @@ jobs:
         with:
           node-version: '22'
 
-      - name: 安装 Windows 构建工具
-        run: |
-          npm install --global --production windows-build-tools
-          npm config set msvs_version 2019
+      - name: 设置 Visual Studio 环境
+        uses: microsoft/setup-msbuild@v2
 
       - uses: oven-sh/setup-bun@v2
         with:
