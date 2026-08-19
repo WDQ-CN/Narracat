@@ -38,8 +38,6 @@ export function loadEnvFiles(root = repoRoot) {
   }
 }
 
-const binExt = process.platform === 'win32' ? '.cmd' : ''
-
 function bin(name) {
   return join(repoRoot, 'node_modules', '.bin', `${name}${binExt}`)
 }
