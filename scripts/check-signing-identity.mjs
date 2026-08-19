@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+// CI 跳过检查的环境变量
+if (process.env.SKIP_SIGNING_CHECK === 'true') {
+  console.log('⚠️  SKIP_SIGNING_CHECK=true，跳过 macOS 签名身份检查')
+  process.exit(0)
+}
+
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 

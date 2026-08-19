@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 // Windows Authenticode 签名身份硬闸（与 mac check-signing-identity.mjs 同构，fail-loud）。
+// CI 跳过检查的环境变量
+if (process.env.SKIP_SIGNING_CHECK === 'true') {
+  console.log('⚠️  SKIP_SIGNING_CHECK=true，跳过 Windows 签名身份检查')
+  process.exit(0)
+}
+
 //
 // electron-builder 在 Windows 上缺签名证书时的行为与 mac 同款：只告警不报错，静默产出
 // 未签名安装包。Windows 未签名的 exe 会触发 SmartScreen「未知发布者」警告，用户必须

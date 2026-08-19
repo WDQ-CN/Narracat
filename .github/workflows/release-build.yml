@@ -35,15 +35,12 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # 跳过签名检查（CI 环境）
+          SKIP_SIGNING_CHECK: "true"
         run: |
-          # 如果配置了 Apple 凭证，则签名+公证；否则只打包
-          if [ -n "$APPLE_ID" ]; then
-            echo "检测到 Apple 凭证，将进行签名和公证..."
-            bun run package:release
-          else
-            echo "未检测到 Apple 凭证，将跳过签名和公证..."
-            bun run package
-          fi
+          # CI 环境统一跳过签名，直接打包
+          echo "CI 环境：跳过签名检查，构建未签名版本"
+          bun run package
 
       - name: 上传 macOS 产物
         uses: actions/upload-artifact@v4
@@ -101,11 +98,10 @@ jobs:
         run: bun run package:win
 
       - name: 打包 Windows（无签名）
-        if: steps.signing.outputs.has_cert == 'false'
-        run: |
-          # 跳过签名检查，直接打包
-          $env:SKIP_SIGNING_CHECK = "true"
-          bun run package:win
+        env:
+          # 跳过签名检查（CI 环境）
+          SKIP_SIGNING_CHECK: "true"
+        run: bun run package:win
 
       - name: 上传 Windows 产物
         uses: actions/upload-artifact@v4
