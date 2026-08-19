@@ -149,7 +149,8 @@ export async function auditAgentMemoryProject(projectRoot) {
     })
     entries.push({
       agentName,
-      path: relativeToMemory,
+      // 统一正斜杠：path 是跨平台契约（测试与报告消费），Windows 的 relative() 返回反斜杠
+      path: relativeToMemory.split('\\').join('/'),
       ...classification,
     })
   }

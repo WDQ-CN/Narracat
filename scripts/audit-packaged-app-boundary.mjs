@@ -6,6 +6,7 @@ import { listPackage } from '@electron/asar'
 import {
   FORBIDDEN_RELATIVE_PATHS,
   hasPrunedMcpNodeModuleDirectory,
+  resolveBundledNativeTarget,
   shouldPruneForeignPlatformBinary,
   shouldPruneMcpDistFile,
   shouldPruneMcpNodeModuleFile,
@@ -15,7 +16,13 @@ const scriptDir = fileURLToPath(new URL('.', import.meta.url))
 const repoRoot = resolve(scriptDir, '..')
 
 export const ALLOWED_ASAR_TOP_LEVEL = new Set(['out', 'node_modules', 'package.json'])
-export const ALLOWED_ELECTRON_LOCALES = new Set(['en.lproj', 'zh_CN.lproj'])
+// Electron locale 资源按平台分叉：mac 是 .lproj 目录（下划线命名），win 是 .pak 文件（连字符命名，#3）。
+export const ALLOWED_ELECTRON_LOCALES_MAC = new Set(['en.lproj', 'zh_CN.lproj'])
+export const ALLOWED_ELECTRON_LOCALES_WIN = new Set(['en-US.pak', 'zh-CN.pak'])
+
+function allowedLocalesFor(platform) {
+  return platform === 'win32' ? ALLOWED_ELECTRON_LOCALES_WIN : ALLOWED_ELECTRON_LOCALES_MAC
+}
 
 export const FORBIDDEN_ASAR_PATHS = [
   '.agents',
@@ -75,16 +82,27 @@ function resolveFromRoot(root, path) {
   return path.startsWith('/') ? path : resolve(root, path)
 }
 
-export function resolvePackagedAppPath(args = process.argv.slice(2), root = repoRoot) {
-  const appPath = readOption(args, '--app') ?? join('dist', 'mac-arm64', 'NarraCat.app')
-  return resolveFromRoot(root, appPath)
+/** 平台默认产物路径：mac = dist/mac-arm64/NarraCat.app；win = dist/win-unpacked/NarraCat.exe。
+ * target 缺省按 stage 的 env 注入（NARRACAT_NATIVE_PLATFORM），无 env 回落 mac 默认。 */
+export function resolvePackagedAppPath(args = process.argv.slice(2), root = repoRoot, target = resolveBundledNativeTarget()) {
+  const appPath = readOption(args, '--app')
+  if (appPath) return resolveFromRoot(root, appPath)
+  return resolveFromRoot(
+    root,
+    target.platform === 'win32'
+      ? join('dist', 'win-unpacked', 'NarraCat.exe')
+      : join('dist', 'mac-arm64', 'NarraCat.app'),
+  )
 }
 
-export function resolvePackagedAsarPath(args = process.argv.slice(2), root = repoRoot) {
+export function resolvePackagedAsarPath(args = process.argv.slice(2), root = repoRoot, target = resolveBundledNativeTarget()) {
   const explicitAsarPath = readOption(args, '--asar')
   if (explicitAsarPath) return resolveFromRoot(root, explicitAsarPath)
 
-  return join(resolvePackagedAppPath(args, root), 'Contents', 'Resources', 'app.asar')
+  const appPath = resolvePackagedAppPath(args, root, target)
+  return target.platform === 'win32'
+    ? join(appPath, 'resources', 'app.asar')
+    : join(appPath, 'Contents', 'Resources', 'app.asar')
 }
 
 export function normalizeAsarEntry(entry) {
@@ -123,23 +141,27 @@ export function classifyAsarEntry(entry) {
   return { ok: true, path: normalized }
 }
 
-export function classifyPackagedResourceEntry(entry) {
+export function classifyPackagedResourceEntry(entry, target = resolveBundledNativeTarget()) {
   const normalized = normalizeAsarEntry(entry)
   if (!normalized) return { ok: true, path: normalized }
 
+  const platform = target.platform
+  const allowedLocales = allowedLocalesFor(platform)
   const topLevel = normalized.split('/')[0]
-  if (topLevel.endsWith('.lproj') && !ALLOWED_ELECTRON_LOCALES.has(topLevel)) {
+  const isLocaleEntry =
+    platform === 'win32' ? topLevel.endsWith('.pak') : topLevel.endsWith('.lproj')
+  if (isLocaleEntry && !allowedLocales.has(topLevel)) {
     return { ok: false, path: normalized, reason: `unexpected Electron locale resource: ${topLevel}` }
   }
 
   if (!normalized.startsWith('NarraCatAgentCore/')) return { ok: true, path: normalized }
 
   const agentCorePath = normalized.slice('NarraCatAgentCore/'.length)
-  if (shouldPruneForeignPlatformBinary(agentCorePath)) {
+  if (shouldPruneForeignPlatformBinary(agentCorePath, target)) {
     return {
       ok: false,
       path: normalized,
-      reason: 'foreign-platform prebuilt binary must be pruned (only darwin/arm64 ships)',
+      reason: `foreign-platform prebuilt binary must be pruned (only ${platform}/${target.arch} ships)`,
     }
   }
 
@@ -225,8 +247,14 @@ function listDirectoryEntries(root) {
   return entries
 }
 
-export function auditPackagedExtraResources(appPath) {
-  const resourcesPath = join(appPath, 'Contents', 'Resources')
+export function resourcesDirFor(appPath, target = resolveBundledNativeTarget()) {
+  return target.platform === 'win32'
+    ? join(appPath, 'resources')
+    : join(appPath, 'Contents', 'Resources')
+}
+
+export function auditPackagedExtraResources(appPath, target = resolveBundledNativeTarget()) {
+  const resourcesPath = resourcesDirFor(appPath, target)
   if (!existsSync(resourcesPath)) {
     throw new Error(`找不到 packaged Resources 目录：${resourcesPath}`)
   }
@@ -234,9 +262,9 @@ export function auditPackagedExtraResources(appPath) {
   return auditPackagedResourceEntries(listDirectoryEntries(resourcesPath))
 }
 
-export function auditPackagedApp(appPath) {
-  const asarReport = auditPackagedAsar(join(appPath, 'Contents', 'Resources', 'app.asar'))
-  const resourcesReport = auditPackagedExtraResources(appPath)
+export function auditPackagedApp(appPath, target = resolveBundledNativeTarget()) {
+  const asarReport = auditPackagedAsar(join(resourcesDirFor(appPath, target), 'app.asar'))
+  const resourcesReport = auditPackagedExtraResources(appPath, target)
   const violations = [
     ...asarReport.violations.map((violation) => ({ ...violation, scope: 'app.asar' })),
     ...resourcesReport.violations.map((violation) => ({ ...violation, scope: 'extraResources' })),

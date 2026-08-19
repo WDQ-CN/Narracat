@@ -30,7 +30,10 @@ const FILES = [
   { path: 'onnx/model_quantized.onnx', sha256: 'b665f3bba56c3119bc76ba131ebcc544d720a7408cb11581bdf354aaa0198d43' },
 ]
 
-const HF_BASE = `https://huggingface.co/${EMBEDDING_MODEL_ID}/resolve/main`
+// HF_ENDPOINT 是 HuggingFace 官方镜像协议（国内常用 https://hf-mirror.com）；
+// 本机网络直连 huggingface.co 不可达时用它绕开。缺省官方源。
+const HF_ENDPOINT = process.env.HF_ENDPOINT?.trim().replace(/\/$/, '') || 'https://huggingface.co'
+const HF_BASE = `${HF_ENDPOINT}/${EMBEDDING_MODEL_ID}/resolve/main`
 
 export function embeddingModelOutputDir(root = repoRoot) {
   return join(root, 'build', 'embedding-model')

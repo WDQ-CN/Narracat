@@ -18,6 +18,8 @@
     "audit:foreshadowing": "tsx scripts/audit-foreshadowing-lifecycle.ts",
     "package": "node scripts/package-rc.mjs",
     "package:release": "node scripts/package-rc.mjs --notarize",
+    "package:win": "node scripts/package-rc.mjs --win",
+    "package:win:release": "node scripts/package-rc.mjs --win --notarize",
     "release": "node scripts/release.mjs",
     "ops:status": "node scripts/ops-status.mjs",
     "ops:issues": "node scripts/ops-issues.mjs",
@@ -56,10 +58,30 @@
       ]
     },
     "win": {
+      "icon": "build/icon.png",
       "electronLanguages": [
         "zh-CN",
         "en-US"
-      ]
+      ],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "publish": {
+        "provider": "generic",
+        "url": "https://update.narracat.com/win-x64"
+      }
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NarraCat"
     },
     "dmg": {
       "backgroundColor": "#ffffff"

@@ -10,6 +10,10 @@ const repoRoot = resolve(scriptDir, '..')
 const defaultDestination = join(repoRoot, 'agent-core', 'narracat')
 const versionLockPath = join(repoRoot, 'agent-core', 'narracat-agent-core.lock.json')
 const execFileAsync = promisify(execFile)
+// Windows 上 npm 是 npm.cmd shim：execFile('npm') 会 ENOENT。导出供测试断言。
+export function npmCommand() {
+  return process.platform === 'win32' ? 'npm.cmd' : 'npm'
+}
 const requiredMcpRuntimePackages = [
   join('@modelcontextprotocol', 'sdk'),
   'better-sqlite3',
@@ -120,10 +124,13 @@ async function hasMcpServerBuild(agentCorePath) {
 
 async function runNpmCommand({ args, cwd, label }) {
   console.log(`${label}：npm ${args.join(' ')} (${cwd})`)
-  await execFileAsync('npm', args, {
+  await execFileAsync(npmCommand(), args, {
     cwd,
     encoding: 'utf-8',
     maxBuffer: 1024 * 1024 * 10,
+    // Windows 下 npm 是 .cmd shim：execFile 直接 spawn 报 EINVAL，须 shell:true 经 cmd.exe 跑。
+    // mac/linux 上 npm 是真实二进制，shell:true 无害（经 shell 执行等价）。
+    shell: process.platform === 'win32',
   })
 }
 

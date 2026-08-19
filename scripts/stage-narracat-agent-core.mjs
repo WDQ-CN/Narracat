@@ -13,6 +13,12 @@ const execFileAsync = promisify(execFile)
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(scriptDir, '..')
 
+// Windows 上 npm 是 npm.cmd shim：execFile('npm') 会 ENOENT（execFile 不走 PATH 的 .cmd 解析）。
+// 与 package-rc.mjs 的 binExt 同款处理。导出供测试断言。
+export function npmCommand() {
+  return process.platform === 'win32' ? 'npm.cmd' : 'npm'
+}
+
 export const STAGED_AGENT_CORE_DIR = join('build', 'NarraCatAgentCore')
 export const PRUNED_MCP_NODE_MODULE_DIR_NAMES = new Set([
   '__tests__',
@@ -126,29 +132,47 @@ function getNodeModulePackageRelativeSegments(segments) {
 }
 
 // onnxruntime-node 随包携带 5 个平台的预编译二进制（darwin/linux/win32 × x64/arm64），实测共 208MB。
-// 本产品只分发 macOS arm64：裁掉其余 ~176MB，同时缩小公证需上传给 Apple 扫描的 Mach-O 面。
+// 默认只分发 macOS arm64：裁掉其余 ~176MB，同时缩小公证需上传给 Apple 扫描的 Mach-O 面。
+// Windows 出包档（NARRACAT_NATIVE_PLATFORM=win32 NARRACAT_NATIVE_ARCH=x64）保留 win32/x64 那份。
 // 裁剪正确性由「设置页向量健康诊断体检卡」直接证伪——裁坏则 embedding 必然失败。
-export const BUNDLED_NATIVE_PLATFORM = 'darwin'
-export const BUNDLED_NATIVE_ARCH = 'arm64'
+export const DEFAULT_NATIVE_PLATFORM = 'darwin'
+export const DEFAULT_NATIVE_ARCH = 'arm64'
 
-export function shouldPruneForeignPlatformBinary(relPath) {
+/** 目标原生平台/架构：env 注入（Windows 出包链用），缺省 darwin/arm64（macOS 默认档）。 */
+export function resolveBundledNativeTarget(env = process.env) {
+  const platform = env.NARRACAT_NATIVE_PLATFORM?.trim() || DEFAULT_NATIVE_PLATFORM
+  const arch = env.NARRACAT_NATIVE_ARCH?.trim() || DEFAULT_NATIVE_ARCH
+  return { platform, arch }
+}
+
+export const BUNDLED_NATIVE_PLATFORM = DEFAULT_NATIVE_PLATFORM
+export const BUNDLED_NATIVE_ARCH = DEFAULT_NATIVE_ARCH
+
+/** onnxruntime-node 动态库扩展名按平台分叉（mac .dylib / win .dll / linux .so）。 */
+export function nativeLibExtension(platform) {
+  if (platform === 'win32') return '.dll'
+  if (platform === 'linux') return '.so'
+  return '.dylib'
+}
+
+export function shouldPruneForeignPlatformBinary(relPath, target = resolveBundledNativeTarget()) {
   const segments = toPosix(relPath).split('/').filter(Boolean)
   const packageIndex = segments.indexOf('onnxruntime-node')
   if (packageIndex === -1) return false
 
   const [binDir, abiDir, platform, arch] = segments.slice(packageIndex + 1)
   if (binDir !== 'bin' || abiDir !== 'napi-v3' || !platform) return false
-  if (platform !== BUNDLED_NATIVE_PLATFORM) return true
+  if (platform !== target.platform) return true
   // 目标平台目录自身放行，以便 fs.cp 递归进去后再逐个架构判定
   if (!arch) return false
-  return arch !== BUNDLED_NATIVE_ARCH
+  return arch !== target.arch
 }
 
 /**
  * 默认拒绝白名单谓词：给定相对 agent-core 根的路径，决定是否进入打包产物。
  * 设计为可被 fs.cp 的 filter 直接调用——对「白名单路径的祖先目录」返回 true 以允许递归。
  */
-export function shouldBundleAgentCorePath(relPath) {
+export function shouldBundleAgentCorePath(relPath, target = resolveBundledNativeTarget()) {
   const rel = toPosix(relPath)
   if (rel === '') return true
 
@@ -160,7 +184,7 @@ export function shouldBundleAgentCorePath(relPath) {
   if (base === '.DS_Store') return false
 
   // 非目标平台的预编译二进制（在 node_modules 不透明照搬之前拦下）
-  if (shouldPruneForeignPlatformBinary(rel)) return false
+  if (shouldPruneForeignPlatformBinary(rel, target)) return false
 
   // node_modules 内部视为不透明：生产依赖已 prune，照搬，不对其套 test/__tests__ 剔除
   // （以免误删某个包运行期真需要的 test 命名文件）。
@@ -186,13 +210,15 @@ export function shouldBundleAgentCorePath(relPath) {
   return false
 }
 
-// shouldPruneForeignPlatformBinary 硬编码了 `bin/napi-v3/darwin/arm64` 这条 ABI/平台目录路径。若 onnxruntime-node 未来
+// shouldPruneForeignPlatformBinary 硬编码了 `bin/napi-v3/<平台>/<架构>` 这条 ABI/平台目录路径。若 onnxruntime-node 未来
 // 升级改了 ABI 目录名（如 napi-v4）：裁剪谓词全线不匹配 → 静默失效 → 5 个平台的二进制照单全收，
 // 只是包变胖，无害。但若改了平台目录名，则会误裁我们需要的那份 → 静默裁过头 → embedding 在加固
 // 运行时下无声失效、且无任何报错（本项目前科：issue #312/#316/#320）。这条正向断言就是防「误裁」的：
-// 暂存树里必须真的还留着 darwin/arm64 的 .node 与 .dylib，缺了就在打包这一步直接炸，而不是留到
-// 用户设置页「向量健康诊断」体检卡才发现。
-export async function assertBundledOnnxRuntimeNativeBinaryPresent(destination) {
+// 暂存树里必须真的还留着目标平台的 .node 与动态库（mac .dylib / win .dll），缺了就在打包这一步直接炸，
+// 而不是留到用户设置页「向量健康诊断」体检卡才发现。
+export async function assertBundledOnnxRuntimeNativeBinaryPresent(destination, target = resolveBundledNativeTarget()) {
+  const { platform, arch } = target
+  const libExt = nativeLibExtension(platform)
   const binaryDir = join(
     destination,
     'mcp-server',
@@ -200,21 +226,21 @@ export async function assertBundledOnnxRuntimeNativeBinaryPresent(destination) {
     'onnxruntime-node',
     'bin',
     'napi-v3',
-    BUNDLED_NATIVE_PLATFORM,
-    BUNDLED_NATIVE_ARCH,
+    platform,
+    arch,
   )
   if (!(await pathExists(binaryDir))) {
     throw new Error(
-      `暂存产物缺少 onnxruntime-node 的 ${BUNDLED_NATIVE_PLATFORM}/${BUNDLED_NATIVE_ARCH} 二进制目录：${binaryDir}` +
+      `暂存产物缺少 onnxruntime-node 的 ${platform}/${arch} 二进制目录：${binaryDir}` +
         '（裁剪可能裁过头，embedding 会静默失效——检查 shouldPruneForeignPlatformBinary 是否还匹配当前 onnxruntime-node 版本的目录结构）',
     )
   }
   const entries = await readdir(binaryDir)
   const hasNativeModule = entries.some((name) => name.endsWith('.node'))
-  const hasDylib = entries.some((name) => name.endsWith('.dylib'))
-  if (!hasNativeModule || !hasDylib) {
+  const hasLib = entries.some((name) => name.endsWith(libExt))
+  if (!hasNativeModule || !hasLib) {
     throw new Error(
-      `暂存产物的 onnxruntime-node ${BUNDLED_NATIVE_PLATFORM}/${BUNDLED_NATIVE_ARCH} 目录不完整（.node 存在=${hasNativeModule}，.dylib 存在=${hasDylib}）：${binaryDir}` +
+      `暂存产物的 onnxruntime-node ${platform}/${arch} 目录不完整（.node 存在=${hasNativeModule}，${libExt} 存在=${hasLib}）：${binaryDir}` +
         '（裁剪可能裁过头，embedding 会静默失效）',
     )
   }
@@ -288,10 +314,13 @@ async function pruneStagedMcpServerDevDependencies(destination) {
   const manifestPath = join(mcpRoot, 'package.json')
   if (!(await pathExists(manifestPath))) return
 
-  await execFileAsync('npm', ['prune', '--omit=dev', '--package-lock=false'], {
+  await execFileAsync(npmCommand(), ['prune', '--omit=dev', '--package-lock=false'], {
     cwd: mcpRoot,
     encoding: 'utf-8',
     maxBuffer: 1024 * 1024 * 10,
+    // Windows 下 npm 是 .cmd shim：execFile 直接 spawn 报 EINVAL，须 shell:true 经 cmd.exe 跑。
+    // mac/linux 上 npm 是真实二进制，shell:true 无害（经 shell 执行等价）。
+    shell: process.platform === 'win32',
   })
 
   // 防御性删除任何 lockfile（白名单本就不收，但 npm 可能写出）

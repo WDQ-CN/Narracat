@@ -9,6 +9,7 @@ export const UPDATE_FEED_BASE_URL = 'https://update.narracat.com'
 export const RELEASE_REPO = 'yannikzz/narracat-novel-agent'
 /** 当前只发 macOS arm64；Windows 战役落位时新增 'win-x64'。 */
 export const MAC_PLATFORM_DIR = 'mac-arm64'
+export const WIN_PLATFORM_DIR = 'win-x64'
 
 /**
  * 对外分发用的永久下载地址（不带版本号，自动跟随 latest）。发给人的链接一律用它，
@@ -17,6 +18,7 @@ export const MAC_PLATFORM_DIR = 'mac-arm64'
  * 所以这是一处刻意的重复：改一边必须同时改另一边，否则这条链接直接 404。
  */
 export const MAC_LATEST_DOWNLOAD_FILE = 'latest.dmg'
+export const WIN_LATEST_DOWNLOAD_FILE = 'latest.exe'
 
 export function macFeedUrl() {
   return `${UPDATE_FEED_BASE_URL}/${MAC_PLATFORM_DIR}`
@@ -24,6 +26,14 @@ export function macFeedUrl() {
 
 export function macDownloadUrl() {
   return `${macFeedUrl()}/${MAC_LATEST_DOWNLOAD_FILE}`
+}
+
+export function winFeedUrl() {
+  return `${UPDATE_FEED_BASE_URL}/${WIN_PLATFORM_DIR}`
+}
+
+export function winDownloadUrl() {
+  return `${winFeedUrl()}/${WIN_LATEST_DOWNLOAD_FILE}`
 }
 
 export function releaseTag(version) {
@@ -42,5 +52,17 @@ export function releaseAssetFileNames(version) {
     `NarraCat-${version}-mac-arm64.dmg`,
     `NarraCat-${version}-mac-arm64.dmg.blockmap`,
     'latest-mac.yml',
+  ]
+}
+
+/**
+ * Windows 一次发版的资产文件名（nsis 安装器 + blockmap + latest.yml 清单）。
+ * Windows 更新载体是 .exe（electron-updater 对 nsis 走 .exe + .blockmap），清单名 latest.yml。
+ */
+export function releaseWinAssetFileNames(version) {
+  return [
+    `NarraCat-${version}-win-x64.exe`,
+    `NarraCat-${version}-win-x64.exe.blockmap`,
+    'latest.yml',
   ]
 }

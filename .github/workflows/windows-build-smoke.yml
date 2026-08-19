@@ -53,3 +53,55 @@ jobs:
           ls -d node_modules/sqlite-vec-* 2>&1 || echo "缺失（当前只装了 darwin-arm64，属预期）"
           echo "=== sharp 平台包 ==="
           ls -d node_modules/@img/sharp-* 2>&1 || echo "缺失"
+
+  # Windows 出包链（切片G）：完整走一遍 package:win 的十一步，验「出包→审计→签名验证」真的能跑通。
+  # 签名证书经 GitHub Secrets 注入（NARRACAT_WINDOWS_SIGNING_THUMBPRINT + CSC_LINK/CSC_KEY_PASSWORD，
+  # electron-builder 的 Windows 代码签名约定）；没配证书时 job 显式跳过——签名闸的 fail-loud 语义
+  # 由 scripts/check-windows-signing-identity.mjs 自己保证，这里不做静默旁路。
+  package-win:
+    runs-on: windows-latest
+    needs: smoke
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 安装依赖
+        run: bun install --no-cache
+
+      - name: 配置代码签名凭证（缺证书则跳过本 job）
+        id: signing
+        shell: bash
+        env:
+          WIN_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          WIN_CERT_THUMBPRINT: ${{ secrets.WINDOWS_CERT_THUMBPRINT }}
+        run: |
+          if [ -z "$WIN_CERT_PFX" ] || [ -z "$WIN_CERT_THUMBPRINT" ]; then
+            echo "未配置 WINDOWS_CERT_PFX / WINDOWS_CERT_THUMBPRINT，跳过 Windows 出包（签名闸会拦）。"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "证书已配置，走完整 Windows 出包链。"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "$WIN_CERT_PFX" | base64 -d > "$RUNNER_TEMP/windows-cert.pfx"
+            echo "cert_path=$RUNNER_TEMP/windows-cert.pfx" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Windows NSIS 出包链（签名 + 审计 + 收尾校验）
+        if: steps.signing.outputs.skip != 'true'
+        shell: bash
+        env:
+          CSC_LINK: ${{ steps.signing.outputs.cert_path }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+          NARRACAT_WINDOWS_SIGNING_THUMBPRINT: ${{ secrets.WINDOWS_CERT_THUMBPRINT }}
+          NARRACAT_NATIVE_PLATFORM: win32
+          NARRACAT_NATIVE_ARCH: x64
+        run: bun --no-cache run package:win
+
+      - name: 确认 NSIS 产物存在
+        if: steps.signing.outputs.skip != 'true'
+        shell: bash
+        run: |
+          ls -la dist/NarraCat-*-win-x64.exe
+          ls -la dist/win-unpacked/NarraCat.exe

@@ -72,6 +72,9 @@ export function resolveUpstreamUrl(pathname: string): string | null {
  */
 const DOWNLOAD_ALIASES: Record<string, DownloadAlias> = {
   '/mac-arm64/latest.dmg': { manifestName: 'latest-mac.yml', assetSuffix: '-mac-arm64.dmg' },
+  // Windows 出包档：永久链接 latest.exe → latest.yml 读版本 → 转发到对应 exe。
+  // 与 scripts/update-feed.mjs 的 WIN_LATEST_DOWNLOAD_FILE 同源（独立部署单元，改一边必须改另一边）。
+  '/win-x64/latest.exe': { manifestName: 'latest.yml', assetSuffix: '-win-x64.exe' },
 }
 
 export type DownloadAlias = {

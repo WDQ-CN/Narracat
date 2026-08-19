@@ -102,12 +102,26 @@ export function assertCorpusCredentials(env = process.env) {
   )
 }
 
-/** 本次打包会产出的 dmg 绝对路径，与 package.json 的 artifactName 模板
+/** 平台分派：darwin（默认）走 mac DMG+ZIP；win32 走 NSIS 安装器。
+ * createPackageRcSteps 的显式参数优先于环境；CLI 入口缺省跟随本机平台。 */
+export function resolvePackagePlatform(platformArg, env = process.env) {
+  if (platformArg === 'win32' || platformArg === 'darwin') return platformArg
+  const envPlatform = env.NARRACAT_PACKAGE_PLATFORM?.trim()
+  if (envPlatform === 'win32' || envPlatform === 'darwin') return envPlatform
+  return process.platform === 'win32' ? 'win32' : 'darwin'
+}
+
+/** 本次打包会产出的 mac dmg 绝对路径，与 package.json 的 artifactName 模板
  * `NarraCat-${version}-mac-${arch}.${ext}` 保持一致（本仓只打 arm64 一个架构）。
  * clientVersion 在打包前已知，用它显式定位「这一次」的产物，而不是让下游脚本靠
  * dist/ 目录里 mtime 最新去猜——历史 dmg 一多、装订又会刷新 mtime，猜的下场是验错版本。 */
 function dmgArtifactPath(clientVersion) {
   return join(repoRoot, 'dist', `NarraCat-${clientVersion}-mac-arm64.dmg`)
+}
+
+/** 本次打包产出的 win NSIS 安装器绝对路径（electron-builder 产物：dist/NarraCat-<v>-win-x64.exe）。 */
+function winInstallerArtifactPath(clientVersion) {
+  return join(repoRoot, 'dist', `NarraCat-${clientVersion}-win-x64.exe`)
 }
 
 /** 本次打包产出的未压缩 .app 可执行文件。
@@ -120,6 +134,11 @@ export function packagedAppBinaryPath(root = repoRoot) {
   return join(root, 'dist', 'mac-arm64', 'NarraCat.app', 'Contents', 'MacOS', 'NarraCat')
 }
 
+/** win 档的未压缩可执行文件（dist/win-unpacked/NarraCat.exe，audit 边界审计目标）。 */
+export function packagedWinBinaryPath(root = repoRoot) {
+  return join(root, 'dist', 'win-unpacked', 'NarraCat.exe')
+}
+
 /** step.env 是**叠加**层不是替换层：子进程仍需完整继承 process.env（PATH、公证/语料凭证等）。
  * 抽成纯函数是为了能被测试直接钉住——runPackageRc 会真的 execFileSync，测不到这一层。 */
 export function resolveStepEnv(step, baseEnv = process.env) {
@@ -129,18 +148,27 @@ export function resolveStepEnv(step, baseEnv = process.env) {
 export function createPackageRcSteps({
   clientVersion = resolveClientBuildVersion({ root: repoRoot }),
   notarize = false,
+  platform = 'darwin',
 } = {}) {
+  const isWin = platform === 'win32'
   const dmgPath = dmgArtifactPath(clientVersion)
+  const signingGate = isWin
+    ? {
+        label: 'verify Windows Authenticode signing identity',
+        command: process.execPath,
+        args: [join(repoRoot, 'scripts', 'check-windows-signing-identity.mjs')],
+      }
+    : {
+        // 签名身份闸放在第一步：没有 Developer ID 证书时，两档打包都跑不通（打包链本就不面向
+        // 外部克隆者，见 check-signing-identity.mjs 的办证指引）。放最前面是为了让这条硬性前提
+        // 在任何耗时步骤（stage Agent Core / prepare embedding model 等，实测数分钟）之前拦下，
+        // 不要让人先烧掉几分钟才撞见"证书都没有"。
+        label: 'verify Developer ID signing identity',
+        command: process.execPath,
+        args: [join(repoRoot, 'scripts', 'check-signing-identity.mjs')],
+      }
   return [
-    // 签名身份闸放在第一步：没有 Developer ID 证书时，两档打包都跑不通（打包链本就不面向
-    // 外部克隆者，见 check-signing-identity.mjs 的办证指引）。放最前面是为了让这条硬性前提
-    // 在任何耗时步骤（stage Agent Core / prepare embedding model 等，实测数分钟）之前拦下，
-    // 不要让人先烧掉几分钟才撞见"证书都没有"。
-    {
-      label: 'verify Developer ID signing identity',
-      command: process.execPath,
-      args: [join(repoRoot, 'scripts', 'check-signing-identity.mjs')],
-    },
+    signingGate,
     {
       label: 'check node runtime',
       command: process.execPath,
@@ -160,6 +188,10 @@ export function createPackageRcSteps({
       label: 'stage NarraCat Agent Core (whitelist)',
       command: process.execPath,
       args: [join(repoRoot, 'scripts', 'stage-narracat-agent-core.mjs')],
+      // win 档：onnxruntime 裁剪与边界审计按 win32/x64 目标平台走（mac 档无 env，缺省 darwin/arm64）
+      ...(isWin
+        ? { env: { NARRACAT_NATIVE_PLATFORM: 'win32', NARRACAT_NATIVE_ARCH: 'x64' } }
+        : {}),
     },
     {
       label: 'ensure Electron-ABI native modules',
@@ -185,74 +217,97 @@ export function createPackageRcSteps({
       args: ['build'],
     },
     {
-      label: `package macOS arm64 DMG + ZIP（${notarize ? '签名 + 公证' : '仅签名'}）`,
+      label: isWin
+        ? `package Windows x64 NSIS（${notarize ? '签名 + 收尾校验' : '仅签名'}）`
+        : `package macOS arm64 DMG + ZIP（${notarize ? '签名 + 公证' : '仅签名'}）`,
       command: bin('electron-builder'),
-      args: [
-        '--mac',
-        'dmg',
-        'zip',
-        '--arm64',
-        `--config.extraMetadata.version=${clientVersion}`,
-        `--config.mac.notarize=${notarize}`,
-      ],
+      args: isWin
+        ? [
+            '--win',
+            'nsis',
+            '--x64',
+            `--config.extraMetadata.version=${clientVersion}`,
+          ]
+        : [
+            '--mac',
+            'dmg',
+            'zip',
+            '--arm64',
+            `--config.extraMetadata.version=${clientVersion}`,
+            `--config.mac.notarize=${notarize}`,
+          ],
     },
     {
       label: 'audit packaged app boundary',
       command: process.execPath,
       args: [join(repoRoot, 'scripts', 'audit-packaged-app-boundary.mjs')],
+      // win 档：审计按 win32 目标平台解析产物路径与原生二进制白名单
+      ...(isWin ? { env: { NARRACAT_NATIVE_PLATFORM: 'win32', NARRACAT_NATIVE_ARCH: 'x64' } } : {}),
     },
-    {
-      // 第二道防线（打包后，仅 mac 档）：复用 smoke-memory 的既有通道，但把 electron 二进制换成
-      // 刚打出来的 .app——验真正要发出去的东西，且走的是**生产实际路径**：真 utilityProcess +
-      // 根 node_modules 的 Electron-ABI better-sqlite3 + 引擎 core dist 动态加载 + RPC 往返。
-      // 打包态由 buildMemoryWorkerEnv 以 resourcesPath 解析真实模型路径覆盖 smoke 的 dummy 目录，
-      // 所以打包的 embedding 一并验到。
-      //
-      // 与上面的 staged 探针是互补而非重复：探针验暂存树自身（node-ABI，跨平台，能进 CI），
-      // 这里验最终产物（Electron-ABI，即生产真正加载的那一份）。两者的 sqlite 根本不是同一个二进制。
-      // 放在 audit boundary 之后：静态只读检查快，先让它拦；这一步要真启动 app，慢且有副作用。
-      // Windows 档接入时不要照搬——它要启动 GUI，而 Windows 出包走 CI、流水线从不启动界面。
-      label: 'smoke packaged app',
-      command: process.execPath,
-      args: [join(repoRoot, 'scripts', 'smoke-memory.mjs')],
-      env: {
-        NARRACAT_SMOKE_ELECTRON_BIN: packagedAppBinaryPath(),
-        // 硬闸：这一步只要没真正跑到产物就必须失败。缺了它，env 万一没传到子进程，
-        // smoke 会静默回落 dev 态、且输出与真产物逐字相同——正是本 PR 要修的那类假绿。
-        NARRACAT_SMOKE_REQUIRE_PACKAGED: '1',
-      },
-    },
-    ...(notarize
+    ...(isWin
       ? [
+          // Windows 无 packaged app GUI smoke：出包走 CI、流水线不启动界面（stage 探针已是跨平台防线）。
+          // Windows 的收尾校验走 Authenticode 签名验证（Get-AuthenticodeSignature），无公证概念。
           {
-            // electron-builder 只签名 + 公证 .app（DmgOptions.sign 默认 false），dmg 容器本身不处理，
-            // 用户先接触的是 dmg——只在 release 档做（默认档本来就不公证；这一步要上传整个 dmg 等好几分钟）。
-            // 显式传 --dmg：dist/ 下可能堆着多个历史 dmg，且装订会刷新 mtime，
-            // 不能让下游脚本靠"目录里 mtime 最新"去猜这一次打的是哪个。
-            label: 'notarize dmg container',
+            label: 'verify Windows signed artifact',
             command: process.execPath,
-            args: [join(repoRoot, 'scripts', 'notarize-dmg.mjs'), '--dmg', dmgPath],
+            args: [join(repoRoot, 'scripts', 'verify-windows-signed-artifact.mjs')],
           },
         ]
-      : []),
-    {
-      label: 'verify signed artifact',
-      command: process.execPath,
-      args: [
-        join(repoRoot, 'scripts', 'verify-signed-artifact.mjs'),
-        ...(notarize ? ['--notarized', '--dmg', dmgPath] : []),
-      ],
-    },
+      : [
+          {
+            // 第二道防线（打包后，仅 mac 档）：复用 smoke-memory 的既有通道，但把 electron 二进制换成
+            // 刚打出来的 .app——验真正要发出去的东西，且走的是**生产实际路径**：真 utilityProcess +
+            // 根 node_modules 的 Electron-ABI better-sqlite3 + 引擎 core dist 动态加载 + RPC 往返。
+            // 打包态由 buildMemoryWorkerEnv 以 resourcesPath 解析真实模型路径覆盖 smoke 的 dummy 目录，
+            // 所以打包的 embedding 一并验到。
+            //
+            // 与上面的 staged 探针是互补而非重复：探针验暂存树自身（node-ABI，跨平台，能进 CI），
+            // 这里验最终产物（Electron-ABI，即生产真正加载的那一份）。两者的 sqlite 根本不是同一个二进制。
+            // 放在 audit boundary 之后：静态只读检查快，先让它拦；这一步要真启动 app，慢且有副作用。
+            // Windows 档接入时不要照搬——它要启动 GUI，而 Windows 出包走 CI、流水线从不启动界面。
+            label: 'smoke packaged app',
+            command: process.execPath,
+            args: [join(repoRoot, 'scripts', 'smoke-memory.mjs')],
+            env: {
+              NARRACAT_SMOKE_ELECTRON_BIN: packagedAppBinaryPath(),
+              // 硬闸：这一步只要没真正跑到产物就必须失败。缺了它，env 万一没传到子进程，
+              // smoke 会静默回落 dev 态、且输出与真产物逐字相同——正是本 PR 要修的那类假绿。
+              NARRACAT_SMOKE_REQUIRE_PACKAGED: '1',
+            },
+          },
+          ...(notarize
+            ? [
+                {
+                  // electron-builder 只签名 + 公证 .app（DmgOptions.sign 默认 false），dmg 容器本身不处理，
+                  // 用户先接触的是 dmg——只在 release 档做（默认档本来就不公证；这一步要上传整个 dmg 等好几分钟）。
+                  // 显式传 --dmg：dist/ 下可能堆着多个历史 dmg，且装订会刷新 mtime，
+                  // 不能让下游脚本靠"目录里 mtime 最新"去猜这一次打的是哪个。
+                  label: 'notarize dmg container',
+                  command: process.execPath,
+                  args: [join(repoRoot, 'scripts', 'notarize-dmg.mjs'), '--dmg', dmgPath],
+                },
+              ]
+            : []),
+          {
+            label: 'verify signed artifact',
+            command: process.execPath,
+            args: [
+              join(repoRoot, 'scripts', 'verify-signed-artifact.mjs'),
+              ...(notarize ? ['--notarized', '--dmg', dmgPath] : []),
+            ],
+          },
+        ]),
   ]
 }
 
-export function runPackageRc({ cwd = repoRoot, stdio = 'inherit', notarize = false } = {}) {
+export function runPackageRc({ cwd = repoRoot, stdio = 'inherit', notarize = false, platform } = {}) {
   if (notarize) {
     assertNotarizeCredentials()
     assertCorpusCredentials()
   }
   const clientVersion = resolveClientBuildVersion({ root: cwd })
-  for (const step of createPackageRcSteps({ clientVersion, notarize })) {
+  for (const step of createPackageRcSteps({ clientVersion, notarize, platform: resolvePackagePlatform(platform) })) {
     const env = resolveStepEnv(step)
     execFileSync(step.command, step.args, { cwd, stdio, ...(env ? { env } : {}) })
   }
@@ -263,5 +318,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   // 会污染 import 本模块做单测的进程。runPackageRc 内的 assertNotarizeCredentials /
   // assertCorpusCredentials 默认读 process.env，必须先加载完凭证文件再调用。
   loadEnvFiles()
-  runPackageRc({ notarize: process.argv.includes('--notarize') })
+  const platformArg = process.argv.includes('--win') ? 'win32' : undefined
+  runPackageRc({ notarize: process.argv.includes('--notarize'), platform: platformArg })
 }
