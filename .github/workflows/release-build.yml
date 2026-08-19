@@ -24,7 +24,7 @@ jobs:
         run: bun install --no-cache
 
       - name: 准备 Agent Core
-        run: bun run prepare:narracat-agent-core
+        run: bun run prepare:narracat-agent-core --source agent-core/narracat
 
       - name: 准备 Embedding 模型
         run: node scripts/prepare-embedding-model.mjs
@@ -72,7 +72,7 @@ jobs:
         run: bun install --no-cache
 
       - name: 准备 Agent Core
-        run: bun run prepare:narracat-agent-core
+        run: bun run prepare:narracat-agent-core --source agent-core/narracat
 
       - name: 准备 Embedding 模型
         run: node scripts/prepare-embedding-model.mjs
