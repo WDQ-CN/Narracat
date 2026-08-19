@@ -34,9 +34,19 @@ NarraCat 让智能先理解你的所想，再协助构建世界观、推进剧�
 
 ## 三步开始写
 
-1. **下载安装**：到 [Releases](https://github.com/yannikzz/narracat-novel-agent/releases) 下载最新 DMG（目前仅支持 **macOS Apple Silicon**；其他平台暂无时间表，欢迎关注）
+1. **下载安装**：到 [Releases](https://github.com/yannikzz/narracat-novel-agent/releases) 下载最新版本
+   - **macOS**：DMG 安装包（Apple Silicon / M 系列芯片）
+   - **Windows**：NSIS 安装包（x64，预览版）
 2. **配置模型**：NarraCat 采用 BYOK（自带 API Key）。推荐 DeepSeek，几分钟即可申请，费用与配置见 [FAQ](./docs/faq.md)
 3. **开一本书**：新建小说 → 立项卡定题材与金手指 → 让 Agent 铺大纲、写第一章
+
+## 平台支持
+
+| 平台 | 架构 | 状态 | 说明 |
+|------|------|------|------|
+| macOS | Apple Silicon (M1/M2/M3) | ✅ 完整支持 | 包含签名、公证、自动更新 |
+| Windows | x64 | 🧪 预览版 | 基础功能完整，持续优化中 |
+| Linux | - | ⏳ 计划中 | 欢迎社区贡献 |
 
 ## 它能做什么
 
