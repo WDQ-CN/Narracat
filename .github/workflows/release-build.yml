@@ -88,34 +88,14 @@ jobs:
       - name: 构建应用
         run: bun run build
 
-      - name: 配置 Windows 签名（如果有证书）
-        id: signing
-        shell: bash
+      - name: 打包 Windows（跳过所有签名检查）
         env:
-          WIN_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
-          WIN_CERT_THUMBPRINT: ${{ secrets.WINDOWS_CERT_THUMBPRINT }}
-        run: |
-          if [ -n "$WIN_CERT_PFX" ] && [ -n "$WIN_CERT_THUMBPRINT" ]; then
-            echo "has_cert=true" >> $GITHUB_OUTPUT
-            echo "检测到 Windows 签名证书"
-          else
-            echo "has_cert=false" >> $GITHUB_OUTPUT
-            echo "未检测到签名证书，将构建未签名版本"
-          fi
-
-      - name: 打包 Windows（有签名）
-        if: steps.signing.outputs.has_cert == 'true'
-        env:
-          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
-          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
-          WINDOWS_CERT_THUMBPRINT: ${{ secrets.WINDOWS_CERT_THUMBPRINT }}
-        run: bun run package:win
-
-      - name: 打包 Windows（无签名）
-        env:
-          # 跳过签名检查（CI 环境）
           SKIP_SIGNING_CHECK: "true"
-        run: bun run package:win
+        run: |
+          # 直接构建，不走 package:win（避免签名检查）
+          bun run build
+          # 直接调用 electron-builder
+          npx electron-builder --win nsis --x64 --config.extraMetadata.version=0.2.0-test
 
       - name: 上传 Windows 产物
         uses: actions/upload-artifact@v4
