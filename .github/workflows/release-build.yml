@@ -12,6 +12,9 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 完整 git 历史
+          lfs: false      # 不需要 LFS
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -57,6 +60,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 完整 git 历史
+          lfs: false      # 不需要 LFS
 
       - uses: oven-sh/setup-bun@v2
         with:
