@@ -16,6 +16,10 @@ jobs:
           fetch-depth: 0  # 完整 git 历史
           lfs: false      # 不需要 LFS
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -63,6 +67,10 @@ jobs:
         with:
           fetch-depth: 0  # 完整 git 历史
           lfs: false      # 不需要 LFS
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
       - uses: oven-sh/setup-bun@v2
         with:
