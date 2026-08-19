@@ -8,9 +8,9 @@
 
 *NarraCat is an AI-powered desktop writing studio for Chinese web-novel authors — plan, draft, and manage million-word serials with an agentic creative engine that keeps long-range plot memory.*
 
-[![CI](https://github.com/yannikzz/narracat-novel-agent/actions/workflows/app-ci.yml/badge.svg)](https://github.com/yannikzz/narracat-novel-agent/actions)
+[![CI](https://github.com/WDQ-CN/Narracat/actions/workflows/app-ci.yml/badge.svg)](https://github.com/WDQ-CN/Narracat/actions)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](./LICENSE)
-[![Release](https://img.shields.io/github/v/release/yannikzz/narracat-novel-agent)](https://github.com/yannikzz/narracat-novel-agent/releases)
+[![Release](https://img.shields.io/github/v/release/WDQ-CN/Narracat)](https://github.com/WDQ-CN/Narracat/releases)
 
 *在人类文明中，故事一直来自人的记忆、情感与想象。<br>
 从口述，到书写，再到数字时代，技术不断改变表达方式，但创造故事的，<br>
@@ -34,7 +34,7 @@ NarraCat 让智能先理解你的所想，再协助构建世界观、推进剧�
 
 ## 三步开始写
 
-1. **下载安装**：到 [Releases](https://github.com/yannikzz/narracat-novel-agent/releases) 下载最新版本
+1. **下载安装**：到 [Releases](https://github.com/WDQ-CN/Narracat/releases) 下载最新版本
    - **macOS**：DMG 安装包（Apple Silicon / M 系列芯片）✅ 已签名，直接安装
    - **Windows**：NSIS 安装包（x64）⚠️ 预览版，未签名，首次安装会有 SmartScreen 提示 → [安装指南](./docs/windows-install-guide.md)
 2. **配置模型**：NarraCat 采用 BYOK（自带 API Key）。推荐 DeepSeek，几分钟即可申请，费用与配置见 [FAQ](./docs/faq.md)
@@ -65,7 +65,7 @@ NarraCat 让智能先理解你的所想，再协助构建世界观、推进剧�
 
 ## 参与
 
-- Bug/功能建议/使用求助 → [Issues](https://github.com/yannikzz/narracat-novel-agent/issues)（**请勿粘贴小说正文与 API Key**）
+- Bug/功能建议/使用求助 → [Issues](https://github.com/WDQ-CN/Narracat/issues)（**请勿粘贴小说正文与 API Key**）
 - 参与开发 → [CONTRIBUTING.md](./CONTRIBUTING.md) · 架构导览 → [ARCHITECTURE.md](./ARCHITECTURE.md)
 - 安全问题 → [SECURITY.md](./SECURITY.md)
 
